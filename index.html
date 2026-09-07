@@ -138,7 +138,8 @@
   .chart-card{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.10);border-radius:18px;padding:14px 12px 8px 12px;margin-bottom:16px;}
   .chart-card .cc-title{font-family:'Inter',sans-serif;font-weight:700;font-size:12.5px;color:var(--cream);margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;}
   .chart-card select{background:rgba(255,255,255,0.08);color:var(--cream);border:1px solid rgba(255,255,255,0.16);border-radius:10px;padding:5px 9px;font-size:11px;font-family:'Inter',sans-serif;}
-  .chart-wrap{position:relative;height:190px;}
+  .chart-wrap{position:relative;height:190px;width:100%;}
+  .chart-wrap canvas{position:absolute;inset:0;width:100% !important;height:100% !important;display:block;}
   .empty-note{font-size:11.5px;color:var(--text-dim);text-align:center;padding:20px 10px;}
   .session-item{display:flex;align-items:center;gap:10px;padding:11px 12px;border-radius:14px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);margin-bottom:8px;}
   .session-item .si-icon{font-size:18px;flex:0 0 auto;width:26px;text-align:center;}
@@ -314,7 +315,10 @@
 <script type="module">
 import { PoseLandmarker, FilesetResolver } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14";
 
-// ===================== One Euro Filter (adaptive jitter reduction) =====================
+/* ════════════════════════════════════════════════════════════════════
+   SECTION 1: ONE EURO FILTER
+   ปรับค่ามุมให้นิ่ง ลด jitter จากการสั่นของกล้อง/โมเดล
+   ════════════════════════════════════════════════════════════════════ */
 class OneEuroFilter{
   constructor(mincutoff=0.7, beta=0.006, dcutoff=1.0){
     this.mincutoff=mincutoff; this.beta=beta; this.dcutoff=dcutoff;
@@ -338,7 +342,10 @@ class OneEuroFilter{
   reset(){ this.xPrev=null; this.dxPrev=0; this.tPrev=null; }
 }
 
-// ===================== Exercise definitions =====================
+/* ════════════════════════════════════════════════════════════════════
+   SECTION 2: การตั้งค่าท่าบริหาร (EXERCISE DEFINITIONS)
+   ถ้าต้องการเพิ่ม/แก้ท่าบริหารใหม่ ให้แก้ตรงนี้ที่เดียว
+   ════════════════════════════════════════════════════════════════════ */
 const LM = {
   left:  { hip: 23, shoulder: 11, elbow: 13, wrist: 15 },
   right: { hip: 24, shoulder: 12, elbow: 14, wrist: 16 }
@@ -397,25 +404,84 @@ const MODEL_PATHS = {
   accurate: "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_full/float16/1/pose_landmarker_full.task"
 };
 
-// ===================== History storage (localStorage) =====================
-// Each record = one completed set ("จบเซต"). Persists across days/sessions on this device/browser.
+/* ════════════════════════════════════════════════════════════════════
+   SECTION 3: ที่เก็บประวัติการฝึก (HISTORY STORAGE - localStorage)
+   หนึ่ง record = หนึ่งเซตที่กำลัง/ฝึกเสร็จแล้ว เก็บถาวรในเครื่อง/เบราว์เซอร์นี้
+
+   FIX: เดิมระบบจะบันทึกประวัติ "ก็ต่อเมื่อ" ผู้ใช้กดปุ่ม "จบเซต" เท่านั้น
+   ถ้าผู้ใช้ฝึกแล้วไม่ได้กดปุ่มนี้ (หรือเปลี่ยนหน้าไปดูสถิติก่อน) กราฟจะว่างเปล่า
+   ทำให้ดูเหมือน "กราฟไม่ขึ้น" ทั้งที่จริง ๆ ไม่มีข้อมูลถูกบันทึกเลย
+   ตอนนี้ระบบจะ "อัปเดตสด" (upsert) เซตที่กำลังฝึกอยู่ลงประวัติทันทีทุกครั้งที่นับครบ 1 ครั้ง
+   ดังนั้นแค่เริ่มฝึกและทำท่าถูกต้อง กราฟ/สถิติจะขึ้นทันทีโดยไม่ต้องกด "จบเซต" ก่อน
+   ════════════════════════════════════════════════════════════════════ */
 const HISTORY_KEY = 'smartmotion_history_v1';
+
 function loadHistory(){
   try{ return JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]'); } catch(e){ return []; }
 }
 function saveHistory(arr){
   try{ localStorage.setItem(HISTORY_KEY, JSON.stringify(arr)); } catch(e){}
 }
-function dateKey(d){ // YYYY-MM-DD in local time
+function dateKey(d){ // YYYY-MM-DD ตามเวลาท้องถิ่น
   const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), day=String(d.getDate()).padStart(2,'0');
   return `${y}-${m}-${day}`;
 }
 function thaiDate(d){ return d.toLocaleDateString('th-TH', { day:'numeric', month:'short' }); }
 
-// ===================== State =====================
+// สร้าง record object จากสถานะเซตปัจจุบัน (ใช้ทั้งตอน upsert ระหว่างฝึก และตอนจบเซตจริง)
+function buildSessionRecord(existingId){
+  const now = new Date();
+  const ex = EXERCISES[selectedExerciseKey];
+  const th = getThresholds();
+  const avgAngle = sessionAngleStats.count ? (sessionAngleStats.sum / sessionAngleStats.count) : null;
+  const romUsed = (sessionAngleStats.max > -Infinity && sessionAngleStats.min < Infinity) ? (sessionAngleStats.max - sessionAngleStats.min) : null;
+  const startedAt = sessionStartTime || now;
+  const durationSec = Math.max(0, Math.round((now - startedAt)/1000));
+  return {
+    id: existingId || ('r_' + startedAt.getTime()),
+    dateKey: dateKey(startedAt),
+    dateISO: startedAt.toISOString(),
+    updatedISO: now.toISOString(),
+    exerciseKey: selectedExerciseKey,
+    exerciseName: ex.name,
+    arm: selectedArm,
+    reps: repCount,
+    minAngle: sessionAngleStats.min > -Infinity ? Math.round(sessionAngleStats.min) : null,
+    maxAngle: sessionAngleStats.max > -Infinity ? Math.round(sessionAngleStats.max) : null,
+    avgAngle: avgAngle !== null ? Math.round(avgAngle) : null,
+    romUsed: romUsed !== null ? Math.round(romUsed) : null,
+    durationSec,
+    thLow: Math.round(th.low), thHigh: Math.round(th.high),
+    calibrated: !!customThresholds[thresholdKey()]
+  };
+}
+
+// เรียกทันทีทุกครั้งที่นับครบ 1 ครั้ง (rep) เพื่อให้กราฟ/สถิติอัปเดตแบบเรียลไทม์
+// ใช้ currentSessionRecordId เป็นตัวอ้างอิงว่าเซตนี้เคยถูกเขียนลง history แล้วหรือยัง (upsert)
+function upsertLiveSessionToHistory(){
+  if (repCount === 0) return;
+  const hist = loadHistory();
+  const record = buildSessionRecord(currentSessionRecordId);
+  currentSessionRecordId = record.id;
+  const idx = hist.findIndex(r => r.id === record.id);
+  if (idx >= 0) hist[idx] = record; else hist.push(record);
+  saveHistory(hist);
+}
+
+// เรียกตอนกด "จบเซต" / ปิดแท็บ / เปลี่ยนท่า-เปลี่ยนแขนกลางคัน เพื่อบันทึกครั้งสุดท้ายให้ครบถ้วน
+function commitSetToHistory(){
+  if (repCount === 0) return null;
+  upsertLiveSessionToHistory();
+  const hist = loadHistory();
+  return hist.find(r => r.id === currentSessionRecordId) || null;
+}
+
+/* ════════════════════════════════════════════════════════════════════
+   SECTION 4: STATE ตัวแปรสถานะหลักของแอป
+   ════════════════════════════════════════════════════════════════════ */
 let selectedArm = 'left';
 let selectedExerciseKey = 'elbow';
-const QUALITY_MODE = 'accurate'; // single fixed model, no user-facing choice
+const QUALITY_MODE = 'accurate'; // fix โมเดลเดียว ไม่มีตัวเลือกให้ผู้ใช้
 let mediaSource = 'device';
 let ipcamUrl = '';
 let facingMode = 'environment';
@@ -439,14 +505,17 @@ let lastVideoTime = -1;
 let stream = null;
 let videoRect = { x:0, y:0, w:0, h:0 };
 let audioCtx = null;
-let sessionLog = [];         // per-rep detail for the CSV of the current set
+let sessionLog = [];              // รายละเอียดแต่ละ rep สำหรับ CSV ของเซตปัจจุบัน
 let sessionStartTime = null;
 let sessionAngleStats = { min: Infinity, max: -Infinity, sum: 0, count: 0 };
+let currentSessionRecordId = null; // id ของ record ใน history ที่กำลังอัปเดตสดอยู่ (เซตปัจจุบัน)
 let customThresholds = {};
 let calibSamples = [];
 let charts = { daily: null, rom: null };
 
-// ===================== DOM =====================
+/* ════════════════════════════════════════════════════════════════════
+   SECTION 5: DOM REFERENCES (อ้างอิง element ทั้งหมดไว้ที่เดียว)
+   ════════════════════════════════════════════════════════════════════ */
 const video = document.getElementById('video');
 const ipcamImg = document.getElementById('ipcam-img');
 const canvas = document.getElementById('overlay');
@@ -517,7 +586,9 @@ const clearHistoryBtn = document.getElementById('clear-history-btn');
 const chartDailyEmpty = document.getElementById('chart-daily-empty');
 const chartRomEmpty = document.getElementById('chart-rom-empty');
 
-// ===================== Helpers: thresholds =====================
+/* ════════════════════════════════════════════════════════════════════
+   SECTION 6: เกณฑ์มุม (THRESHOLDS) - ค่ามาตรฐาน vs ค่าที่ปรับเทียบเอง
+   ════════════════════════════════════════════════════════════════════ */
 function thresholdKey(){ return `${selectedExerciseKey}_${selectedArm}`; }
 function getThresholds(){
   const ex = EXERCISES[selectedExerciseKey];
@@ -532,7 +603,9 @@ function updateCalibStatusBox(){
   } else { calibStatusBox.style.display = 'none'; }
 }
 
-// ===================== Exercise picker UI =====================
+/* ════════════════════════════════════════════════════════════════════
+   SECTION 7: UI เลือกท่าบริหาร (หน้าเริ่มต้น + sheet เปลี่ยนท่า + ตัวอย่างท่า)
+   ════════════════════════════════════════════════════════════════════ */
 function buildExerciseCard(ex, container, onPick){
   const card = document.createElement('div');
   card.className = 'exercise-card' + (ex.key === selectedExerciseKey ? ' active' : '');
@@ -571,7 +644,17 @@ function resetTrackingState(){
   angleFilter.reset();
   stagePill.textContent = 'รอเริ่ม';
 }
+// เปลี่ยนท่า/แขนกลางเซต ถือว่าเป็นเซตใหม่ -> บันทึกเซตเก่าที่ค้างอยู่ให้จบก่อน แล้วเริ่มนับใหม่
+function finalizeCurrentSetAndStartNew(){
+  if (repCount > 0) commitSetToHistory();
+  repCount = 0; repNum.textContent = '0'; sessionLog = [];
+  sessionAngleStats = { min: Infinity, max: -Infinity, sum: 0, count: 0 };
+  sessionStartTime = new Date();
+  currentSessionRecordId = null;
+}
 function setExercise(key, fromSheet){
+  if (key === selectedExerciseKey) { if (fromSheet) showTip(EXERCISES[key].tip); return; }
+  finalizeCurrentSetAndStartNew();
   selectedExerciseKey = key;
   document.querySelectorAll('.exercise-card').forEach(c => c.classList.toggle('active', c.dataset.key === key));
   const ex = EXERCISES[key];
@@ -581,6 +664,8 @@ function setExercise(key, fromSheet){
   if (fromSheet) showTip(ex.tip);
 }
 function setArm(arm){
+  if (arm === selectedArm) return;
+  finalizeCurrentSetAndStartNew();
   selectedArm = arm;
   pickLeft.classList.toggle('active', arm==='left'); pickRight.classList.toggle('active', arm==='right');
   armLeftBtn.classList.toggle('active', arm==='left'); armRightBtn.classList.toggle('active', arm==='right');
@@ -600,7 +685,9 @@ exampleBackdrop.onclick = (e) => { if (e.target === exampleBackdrop) exampleBack
 srcDevice.onclick = () => { mediaSource='device'; srcDevice.classList.add('active'); srcIpcam.classList.remove('active'); ipcamField.style.display='none'; };
 srcIpcam.onclick = () => { mediaSource='ipcam'; srcIpcam.classList.add('active'); srcDevice.classList.remove('active'); ipcamField.style.display='block'; };
 
-// ===================== Banners / toast =====================
+/* ════════════════════════════════════════════════════════════════════
+   SECTION 8: BANNERS / TOAST (ข้อความแจ้งเตือนต่าง ๆ บนหน้าจอ)
+   ════════════════════════════════════════════════════════════════════ */
 function showBanner(msg){ banner.textContent = msg; banner.style.display = 'block'; }
 function hideBanner(){ banner.style.display = 'none'; }
 let tipTimer = null;
@@ -617,7 +704,9 @@ function showRepToast(n){
   toastTimer = setTimeout(() => repToast.classList.remove('show'), 900);
 }
 
-// ===================== Audio feedback =====================
+/* ════════════════════════════════════════════════════════════════════
+   SECTION 9: AUDIO FEEDBACK (เสียงบี๊บ + พูดจำนวนครั้ง)
+   ════════════════════════════════════════════════════════════════════ */
 function ensureAudioCtx(){ if (!audioCtx){ try{ audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch(e){ audioCtx = null; } } }
 function beep(){
   if (!soundOn || !audioCtx) return;
@@ -642,7 +731,9 @@ mirrorBtn.onclick = () => {
   mirrorBtn.classList.toggle('off', !mirrorOn);
 };
 
-// ===================== Model loading =====================
+/* ════════════════════════════════════════════════════════════════════
+   SECTION 10: โหลดโมเดล AI (MediaPipe Pose Landmarker)
+   ════════════════════════════════════════════════════════════════════ */
 async function loadModel(){
   if (poseLandmarker) return;
   const vision = await FilesetResolver.forVisionTasks("https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.14/wasm");
@@ -654,7 +745,9 @@ async function loadModel(){
   });
 }
 
-// ===================== Media sources =====================
+/* ════════════════════════════════════════════════════════════════════
+   SECTION 11: แหล่งภาพ / กล้อง (กล้องอุปกรณ์ vs IP Webcam)
+   ════════════════════════════════════════════════════════════════════ */
 async function startDeviceCamera(){
   if (stream){ stream.getTracks().forEach(t => t.stop()); }
   stream = await navigator.mediaDevices.getUserMedia({
@@ -703,11 +796,11 @@ switchCamBtn.onclick = async () => {
   try{ await startDeviceCamera(); resizeCanvas(); } catch(e){ showBanner('ไม่สามารถสลับกล้องได้: ' + e.message); }
 };
 
-// ===================== Angle math (2D, X-Y plane) =====================
-// NOTE: MediaPipe's Z (depth) estimate from a single camera is considerably noisier
-// than X/Y, especially frame-to-frame. Using it in the angle calculation was the main
-// cause of the unstable/jumping degree readings. The 2D plane angle is far steadier
-// for a person facing/side-on to a single camera, which is how this app is used.
+/* ════════════════════════════════════════════════════════════════════
+   SECTION 12: คำนวณมุมข้อต่อ + วาด SKELETON บน canvas
+   หมายเหตุ: ใช้มุมบนระนาบ 2D (X-Y) เท่านั้น ไม่ใช้ค่า Z (ความลึก)
+   เพราะค่า Z จากกล้องตัวเดียวมี noise สูงกว่ามาก ทำให้ตัวเลของศากระโดดไปมา
+   ════════════════════════════════════════════════════════════════════ */
 function angleAt3D(a, b, c){
   const v1 = { x: a.x-b.x, y: a.y-b.y };
   const v2 = { x: c.x-b.x, y: c.y-b.y };
@@ -740,7 +833,9 @@ function updateHud(angle, isTargetZone, ex, th){
   confDot.style.background = confidence > 0.7 ? '#3FCB7C' : confidence > 0.4 ? '#E8935B' : '#E8574A';
 }
 
-// ===================== Main loop =====================
+/* ════════════════════════════════════════════════════════════════════
+   SECTION 13: MAIN LOOP - รันทุกเฟรม ตรวจจับท่าทาง นับ rep และบันทึกสด
+   ════════════════════════════════════════════════════════════════════ */
 function predictLoop(){
   if (!running || paused || calibrating){ requestAnimationFrame(predictLoop); return; }
   const activeEl = getActiveEl();
@@ -775,8 +870,7 @@ function predictLoop(){
             outlierStreak = 0;
           }
           lastRawAngle = rawAngle;
-          // Accept the reading unless it's a lone one-frame spike; 3+ consistent
-          // readings in a row means it's real (fast) movement, not sensor noise.
+          // รับค่าไว้เสมอ ยกเว้นเป็น spike เดี่ยว ๆ 1 เฟรม; ถ้า spike ต่อกัน 3+ เฟรม แปลว่าเคลื่อนไหวจริง (เร็ว) ไม่ใช่ noise
           if (!isSpike || outlierStreak >= 3) smoothedAngle = angleFilter.filter(rawAngle, performance.now());
 
           if (smoothedAngle !== null){
@@ -784,7 +878,7 @@ function predictLoop(){
             updateHud(smoothedAngle, isTargetZone, ex, th);
             drawSkeleton(a,b,c,isTargetZone);
 
-            // Track ROM stats (min/max/avg angle) continuously for this set's detailed stats
+            // เก็บสถิติมุม (min/max/avg) ต่อเนื่องสำหรับเซตนี้
             if (smoothedAngle < sessionAngleStats.min) sessionAngleStats.min = smoothedAngle;
             if (smoothedAngle > sessionAngleStats.max) sessionAngleStats.max = smoothedAngle;
             sessionAngleStats.sum += smoothedAngle; sessionAngleStats.count += 1;
@@ -800,6 +894,7 @@ function predictLoop(){
                 setTimeout(() => { repNum.style.transform = 'scale(1)'; }, 180);
                 sessionLog.push({ idx: repCount, time: new Date().toLocaleTimeString('th-TH'), angle: Math.round(smoothedAngle) });
                 beep(); speakCount(repCount); showRepToast(repCount);
+                upsertLiveSessionToHistory(); // <-- บันทึกลงประวัติทันทีทุกครั้งที่นับครบ 1 ครั้ง (ไม่ต้องรอกด "จบเซต")
               }
             } else { framesInZone = 0; }
           }
@@ -813,7 +908,9 @@ function predictLoop(){
   requestAnimationFrame(predictLoop);
 }
 
-// ===================== Controls: pause / finish set (save to history) / CSV =====================
+/* ════════════════════════════════════════════════════════════════════
+   SECTION 14: ปุ่มควบคุม - หยุดชั่วคราว / จบเซต / บันทึก CSV
+   ════════════════════════════════════════════════════════════════════ */
 function setPaused(p){
   paused = p;
   pauseOverlay.style.display = p ? 'flex' : 'none';
@@ -821,38 +918,6 @@ function setPaused(p){
 }
 pauseBtn.onclick = () => setPaused(!paused);
 resumeBtn.onclick = () => setPaused(false);
-
-// Persist the just-finished set into localStorage history so it survives across days/sessions.
-function commitSetToHistory(){
-  if (repCount === 0) return;
-  const now = new Date();
-  const ex = EXERCISES[selectedExerciseKey];
-  const th = getThresholds();
-  const avgAngle = sessionAngleStats.count ? (sessionAngleStats.sum / sessionAngleStats.count) : null;
-  const romUsed = (sessionAngleStats.max > -Infinity && sessionAngleStats.min < Infinity) ? (sessionAngleStats.max - sessionAngleStats.min) : null;
-  const durationSec = sessionStartTime ? Math.round((now - sessionStartTime)/1000) : null;
-
-  const record = {
-    id: 'r_' + now.getTime(),
-    dateKey: dateKey(now),
-    dateISO: now.toISOString(),
-    exerciseKey: selectedExerciseKey,
-    exerciseName: ex.name,
-    arm: selectedArm,
-    reps: repCount,
-    minAngle: sessionAngleStats.min > -Infinity ? Math.round(sessionAngleStats.min) : null,
-    maxAngle: sessionAngleStats.max > -Infinity ? Math.round(sessionAngleStats.max) : null,
-    avgAngle: avgAngle !== null ? Math.round(avgAngle) : null,
-    romUsed: romUsed !== null ? Math.round(romUsed) : null,
-    durationSec,
-    thLow: Math.round(th.low), thHigh: Math.round(th.high),
-    calibrated: !!customThresholds[thresholdKey()]
-  };
-  const hist = loadHistory();
-  hist.push(record);
-  saveHistory(hist);
-  return record;
-}
 
 resetBtn.onclick = () => {
   if (repCount > 0){
@@ -864,6 +929,7 @@ resetBtn.onclick = () => {
   repCount = 0; repNum.textContent = '0'; sessionLog = [];
   sessionAngleStats = { min: Infinity, max: -Infinity, sum: 0, count: 0 };
   sessionStartTime = new Date();
+  currentSessionRecordId = null;
   resetTrackingState();
 };
 
@@ -894,7 +960,9 @@ saveBtn.onclick = () => {
   downloadCSV(); showTip('บันทึกไฟล์ CSV เรียบร้อยแล้ว');
 };
 
-// ===================== Calibration wizard =====================
+/* ════════════════════════════════════════════════════════════════════
+   SECTION 15: CALIBRATION WIZARD (ปรับเทียบมุมเฉพาะบุคคล)
+   ════════════════════════════════════════════════════════════════════ */
 function currentLiveAngle(){
   if (!poseLandmarker) return null;
   const activeEl = getActiveEl();
@@ -949,20 +1017,30 @@ async function startCalibration(){
 }
 calibOpenBtn.onclick = startCalibration;
 
-// ===================== Stats screen =====================
+/* ════════════════════════════════════════════════════════════════════
+   SECTION 16: หน้าสถิติ (STATS SCREEN) - การ์ดสรุป + กราฟ + ประวัติเซต
+
+   FIX (กราฟไม่ขึ้น):
+   1) เดิม canvas ไม่มี CSS กำหนดขนาดชัดเจน (มีแค่ .chart-wrap{height:190px})
+      แล้วโค้ดไปตั้ง canvas.width/height เป็นพิกเซลตรง ๆ ก่อนสร้าง Chart.js
+      พอ Chart.js เจอ responsive:true มันจะพยายามคำนวณขนาดเองจาก CSS อีกที
+      ถ้าจังหวะ layout ยังไม่นิ่ง (โดยเฉพาะตอนสลับ #stats-screen จาก display:none -> flex)
+      จะได้ขนาด 0x0 แล้วกราฟไม่ render เลย
+      -> แก้โดยเพิ่ม CSS ให้ canvas เป็น width:100%;height:100% ชัดเจน (ดู .chart-wrap canvas ใน CSS)
+         และเรียก chart.resize() อีกครั้งหลัง requestAnimationFrame ถัดไปเป็น safety net
+   2) เดิมข้อมูลจะถูกบันทึกลงประวัติ "เฉพาะตอนกด จบเซต" เท่านั้น ถ้าไม่กดปุ่มนี้
+      กราฟ/สถิติจะว่างเสมอ (ดู SECTION 3: upsertLiveSessionToHistory ที่แก้ไปแล้ว)
+   ════════════════════════════════════════════════════════════════════ */
 function computeStreak(hist){
   if (hist.length === 0) return 0;
   const days = new Set(hist.map(r => r.dateKey));
   let streak = 0;
   let cursor = new Date();
-  while (true){
-    const key = dateKey(cursor);
-    if (days.has(key)){ streak += 1; cursor.setDate(cursor.getDate() - 1); }
-    else if (streak === 0 && key === dateKey(new Date())){
-      // today has no session yet, don't break the streak count for "today" - just check yesterday onward
-      cursor.setDate(cursor.getDate() - 1);
-      if (!days.has(dateKey(cursor))) break;
-    } else break;
+  // นับวันติดต่อกันย้อนหลังจากวันนี้ ถ้าวันนี้ยังไม่มีข้อมูล ให้เริ่มนับจากเมื่อวานแทน (ไม่ตัด streak ทิ้งทันที)
+  if (!days.has(dateKey(cursor))) cursor.setDate(cursor.getDate() - 1);
+  while (days.has(dateKey(cursor))){
+    streak += 1;
+    cursor.setDate(cursor.getDate() - 1);
   }
   return streak;
 }
@@ -989,6 +1067,15 @@ function buildRomChartData(hist, exerciseKey){
   };
 }
 
+// สร้าง/รีเฟรช Chart.js instance ตัวหนึ่ง พร้อม safety-resize กันปัญหา canvas ขนาด 0
+function mountChart(existingChart, canvasEl, config){
+  if (existingChart) existingChart.destroy();
+  const chart = new Chart(canvasEl.getContext('2d'), config);
+  // เผื่อ layout ยังไม่นิ่งตอนสร้าง (เช่นเพิ่งเปิดหน้าสถิติ) ให้บังคับ resize อีกรอบในเฟรมถัดไป
+  requestAnimationFrame(() => chart.resize());
+  return chart;
+}
+
 function renderCharts(){
   if (typeof Chart === 'undefined'){
     chartDailyEmpty.textContent = 'โหลดไลบรารีกราฟไม่สำเร็จ (Chart.js) กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ตแล้วลองเปิดหน้านี้ใหม่';
@@ -999,26 +1086,19 @@ function renderCharts(){
   }
   const hist = loadHistory();
 
-  // Summary cards
+  // --- การ์ดสรุปตัวเลข ---
   const todayKey = dateKey(new Date());
   scToday.textContent = hist.filter(r => r.dateKey === todayKey).reduce((s,r)=>s+r.reps,0);
   scTotal.textContent = hist.reduce((s,r)=>s+r.reps,0);
   scDays.textContent = new Set(hist.map(r => r.dateKey)).size;
   scStreak.textContent = computeStreak(hist);
 
-  // Daily bar chart
+  // --- กราฟแท่ง: จำนวนครั้งต่อวัน ---
   const dailyData = buildDailyChartData(hist);
   const hasDaily = dailyData.data.some(v => v > 0);
   chartDailyEmpty.classList.toggle('hidden', hasDaily);
-  // Force explicit pixel dimensions before creating the chart: right after the stats
-  // screen becomes visible, the canvas's parent may not have finished layout yet, which
-  // makes Chart.js read a 0-width canvas and render nothing until a later resize event.
   const dailyCanvas = document.getElementById('chart-daily');
-  dailyCanvas.width = dailyCanvas.parentElement.clientWidth;
-  dailyCanvas.height = dailyCanvas.parentElement.clientHeight;
-  const dailyCtx = dailyCanvas.getContext('2d');
-  if (charts.daily) charts.daily.destroy();
-  charts.daily = new Chart(dailyCtx, {
+  charts.daily = mountChart(charts.daily, dailyCanvas, {
     type: 'bar',
     data: { labels: dailyData.labels, datasets: [{ label: 'จำนวนครั้ง', data: dailyData.data, backgroundColor: '#2FBF9E', borderRadius: 5, maxBarThickness: 22 }] },
     options: {
@@ -1031,7 +1111,7 @@ function renderCharts(){
     }
   });
 
-  // ROM select options (built once per open)
+  // --- ตัวเลือกท่าบริหารสำหรับกราฟ ROM (สร้าง dropdown แค่ครั้งเดียว) ---
   if (romExerciseSelect.dataset.built !== '1'){
     romExerciseSelect.innerHTML = '<option value="all">ทุกท่า</option>' +
       Object.values(EXERCISES).map(ex => `<option value="${ex.key}">${ex.name}</option>`).join('');
@@ -1040,7 +1120,7 @@ function renderCharts(){
   }
   renderRomChart();
 
-  // Recent sessions list (most recent first, cap 15)
+  // --- รายการเซตล่าสุด (ใหม่สุดก่อน สูงสุด 15 รายการ) ---
   sessionListEl.innerHTML = '';
   const recent = [...hist].sort((a,b)=> new Date(b.dateISO)-new Date(a.dateISO)).slice(0,15);
   if (recent.length === 0){
@@ -1073,11 +1153,7 @@ function renderRomChart(){
   const hasRom = romData.data.length > 0;
   chartRomEmpty.classList.toggle('hidden', hasRom);
   const romCanvas = document.getElementById('chart-rom');
-  romCanvas.width = romCanvas.parentElement.clientWidth;
-  romCanvas.height = romCanvas.parentElement.clientHeight;
-  const romCtx = romCanvas.getContext('2d');
-  if (charts.rom) charts.rom.destroy();
-  charts.rom = new Chart(romCtx, {
+  charts.rom = mountChart(charts.rom, romCanvas, {
     type: 'line',
     data: { labels: romData.labels, datasets: [{ label: 'ROM (°)', data: romData.data, borderColor:'#E8935B', backgroundColor:'rgba(232,147,91,0.15)', fill:true, tension:0.35, pointRadius:3, pointBackgroundColor:'#E8935B' }] },
     options: {
@@ -1093,6 +1169,7 @@ function renderRomChart(){
 
 function openStats(){
   statsScreen.style.display = 'flex';
+  // รอ 2 เฟรมให้ layout ของ #stats-screen (จาก display:none -> flex) นิ่งก่อนค่อยวัดขนาด canvas
   requestAnimationFrame(() => requestAnimationFrame(renderCharts));
 }
 function closeStats(){ statsScreen.style.display = 'none'; }
@@ -1124,12 +1201,15 @@ exportAllBtn.onclick = () => {
 clearHistoryBtn.onclick = () => {
   if (confirm('ต้องการล้างประวัติการฝึกทั้งหมดหรือไม่? การกระทำนี้ไม่สามารถย้อนกลับได้')){
     saveHistory([]);
+    currentSessionRecordId = null; // เซตปัจจุบัน (ถ้ามี) จะถูกสร้าง record ใหม่แทนของเดิมที่ถูกล้างไปแล้ว
     renderCharts();
     showTip('ล้างประวัติเรียบร้อยแล้ว');
   }
 };
 
-// ===================== Start flow =====================
+/* ════════════════════════════════════════════════════════════════════
+   SECTION 17: START FLOW - ขั้นตอนเริ่มฝึก (ขอกล้อง -> โหลดโมเดล -> เริ่ม loop)
+   ════════════════════════════════════════════════════════════════════ */
 startBtn.onclick = async () => {
   startBtn.disabled = true;
   startBtn.textContent = 'กำลังเชื่อมต่อ...';
@@ -1150,6 +1230,7 @@ startBtn.onclick = async () => {
     startScreen.classList.add('hidden');
     sessionStartTime = new Date();
     sessionAngleStats = { min: Infinity, max: -Infinity, sum: 0, count: 0 };
+    currentSessionRecordId = null;
     running = true; paused = false;
     resizeCanvas();
     showTip(EXERCISES[selectedExerciseKey].tip);
@@ -1162,9 +1243,12 @@ startBtn.onclick = async () => {
   }
 };
 
-// Best-effort: save an in-progress set if the tab is closing so data isn't lost.
+// พยายามบันทึกเซตที่ค้างอยู่ก่อนปิดแท็บ (เผื่อกรณีสุดวิสัย - จริง ๆ ข้อมูลถูก upsert สดระหว่างฝึกอยู่แล้ว)
 window.addEventListener('beforeunload', () => { if (running && repCount > 0) commitSetToHistory(); });
 
+/* ════════════════════════════════════════════════════════════════════
+   SECTION 18: INIT - เรียกใช้งานตอนโหลดหน้าเว็บ
+   ════════════════════════════════════════════════════════════════════ */
 renderExerciseLists();
 window.addEventListener('resize', () => {
   resizeCanvas();
