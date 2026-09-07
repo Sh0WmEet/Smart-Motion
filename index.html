@@ -83,13 +83,28 @@
   #start-screen p.sub{color:var(--text-dim);font-size:11.5px;max-width:340px;margin:0 0 12px 0;line-height:1.5;}
   .section-label{align-self:flex-start;font-size:10px;font-weight:700;color:var(--text-dim);letter-spacing:0.6px;text-transform:uppercase;margin:8px 0 7px 2px;}
   .exercise-list{display:flex;flex-direction:column;gap:8px;width:100%;max-width:380px;}
-  .exercise-card{display:flex;align-items:center;gap:10px;text-align:left;padding:11px 12px;border-radius:15px;border:1.5px solid rgba(255,255,255,0.14);background:rgba(255,255,255,0.04);width:100%;}
+  .exercise-card{display:flex;align-items:stretch;gap:6px;border-radius:15px;border:1.5px solid rgba(255,255,255,0.14);background:rgba(255,255,255,0.04);width:100%;}
+  .exercise-card .ex-select-btn{display:flex;align-items:center;gap:10px;text-align:left;padding:11px 6px 11px 12px;flex:1;min-width:0;background:none;border:none;color:inherit;}
+  .exercise-card .ex-info-btn{flex:0 0 auto;width:38px;border:none;background:none;font-size:16px;opacity:0.85;}
   .exercise-card .ex-icon{font-size:18px;flex:0 0 auto;width:28px;text-align:center;}
   .exercise-card .ex-text{flex:1;min-width:0;}
   .exercise-card .ex-name{font-family:'Inter',sans-serif;font-weight:700;font-size:12px;color:var(--cream);}
   .exercise-card .ex-tip{font-size:10px;color:var(--text-dim);margin-top:2px;line-height:1.4;}
   .exercise-card.active{border-color:var(--teal);background:rgba(47,191,158,0.14);}
   .exercise-card.active .ex-name{color:var(--teal);}
+
+  #example-backdrop{position:absolute;inset:0;z-index:32;background:rgba(0,0,0,0.6);display:none;align-items:flex-end;justify-content:center;}
+  #example-sheet{width:100%;max-width:480px;background:#10201D;border-radius:24px 24px 0 0;padding:18px 20px max(20px, env(safe-area-inset-bottom)) 20px;border-top:1px solid rgba(255,255,255,0.12);max-height:85vh;overflow-y:auto;text-align:center;}
+  #example-sheet .ex-example-title{font-family:'Sora',sans-serif;font-weight:800;font-size:16px;margin-bottom:10px;}
+  #example-svg-wrap{width:100%;max-width:260px;margin:0 auto 14px auto;background:rgba(255,255,255,0.03);border-radius:16px;padding:10px;}
+  #example-svg-wrap svg{width:100%;height:auto;display:block;}
+  #example-steps{list-style:none;margin:0 0 16px 0;padding:0;text-align:left;}
+  #example-steps li{display:flex;gap:10px;align-items:flex-start;font-size:12.5px;color:var(--cream);line-height:1.5;margin-bottom:9px;}
+  #example-steps .step-num{flex:0 0 auto;width:20px;height:20px;border-radius:50%;background:var(--teal);color:var(--bg);font-family:'Sora',sans-serif;font-weight:800;font-size:11px;display:flex;align-items:center;justify-content:center;}
+  #example-actions{display:flex;gap:9px;}
+  #example-actions button{flex:1;padding:13px;border-radius:14px;font-weight:700;font-size:13px;border:none;}
+  #example-select-btn{background:var(--teal);color:var(--bg);}
+  #example-close-btn{background:rgba(255,255,255,0.08);color:var(--cream);}
   .select-row{display:flex;gap:8px;margin:4px 0 4px 0;width:100%;max-width:380px;}
   .select-card{flex:1;padding:11px 6px;border-radius:15px;border:1.5px solid rgba(255,255,255,0.14);background:rgba(255,255,255,0.04);font-family:'Inter',sans-serif;font-weight:600;font-size:11px;}
   .select-card.active{border-color:var(--teal);background:rgba(47,191,158,0.14);color:var(--teal);}
@@ -246,6 +261,18 @@
   </div>
 </div>
 
+<div id="example-backdrop">
+  <div id="example-sheet">
+    <div class="ex-example-title" id="example-title">ตัวอย่างท่าบริหาร</div>
+    <div id="example-svg-wrap"></div>
+    <ol id="example-steps"></ol>
+    <div id="example-actions">
+      <button id="example-close-btn">ปิด</button>
+      <button id="example-select-btn">เลือกท่านี้</button>
+    </div>
+  </div>
+</div>
+
 <div id="stats-screen">
   <div class="stats-topbar">
     <h2>📊 สถิติและประวัติการฝึก</h2>
@@ -289,7 +316,7 @@ import { PoseLandmarker, FilesetResolver } from "https://cdn.jsdelivr.net/npm/@m
 
 // ===================== One Euro Filter (adaptive jitter reduction) =====================
 class OneEuroFilter{
-  constructor(mincutoff=1.2, beta=0.03, dcutoff=1.0){
+  constructor(mincutoff=0.7, beta=0.006, dcutoff=1.0){
     this.mincutoff=mincutoff; this.beta=beta; this.dcutoff=dcutoff;
     this.xPrev=null; this.dxPrev=0; this.tPrev=null;
   }
@@ -319,13 +346,51 @@ const LM = {
 const EXERCISES = {
   elbow: { key:'elbow', icon:'💪', name:'งอ-เหยียดข้อศอก', triplet:(arm)=>[LM[arm].shoulder,LM[arm].elbow,LM[arm].wrist],
     defLow:40, defHigh:160, readyLabel:'พับแขนให้สุด', targetLabel:'เหยียดแขนออก', midLabel:'กำลังเคลื่อนไหว',
-    tip:'วางกล้องด้านข้างลำตัว (มุมข้าง) ให้เห็นไหล่ถึงมือชัดเจน' },
+    tip:'วางกล้องด้านข้างลำตัว (มุมข้าง) ให้เห็นไหล่ถึงมือชัดเจน',
+    steps:['นั่งหรือยืนตัวตรง วางต้นแขนแนบลำตัว','งอข้อศอกยกปลายแขนขึ้นหาไหล่ให้สุด (มุมแคบ)','ค่อย ๆ เหยียดแขนออกจนสุดจนแขนตรง (มุมกว้าง)','ทำสลับพับ-เหยียดซ้ำตามจำนวนที่ต้องการ'],
+    demoSvg:`<svg viewBox="0 0 160 130" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="60" cy="24" r="11" fill="none" stroke="#A9BDB8" stroke-width="3"/>
+      <line x1="60" y1="35" x2="58" y2="80" stroke="#A9BDB8" stroke-width="4" stroke-linecap="round"/>
+      <line x1="58" y1="80" x2="90" y2="100" stroke="#A9BDB8" stroke-width="4" stroke-linecap="round"/>
+      <line x1="58" y1="80" x2="35" y2="105" stroke="#A9BDB8" stroke-width="4" stroke-linecap="round"/>
+      <line x1="58" y1="52" x2="86" y2="60" stroke="#3FCB7C" stroke-width="5" stroke-linecap="round"/>
+      <line x1="86" y1="60" x2="70" y2="34" stroke="#3FCB7C" stroke-width="5" stroke-linecap="round" stroke-dasharray="5,4"/>
+      <line x1="58" y1="52" x2="86" y2="60" stroke="#E8935B" stroke-width="5" stroke-linecap="round" opacity="0"/>
+      <line x1="58" y1="52" x2="120" y2="72" stroke="#E8935B" stroke-width="5" stroke-linecap="round"/>
+      <path d="M 100 45 Q 118 55 108 68" fill="none" stroke="#F4F1EA" stroke-width="2.5" marker-end="url(#arrEl)"/>
+      <defs><marker id="arrEl" markerWidth="7" markerHeight="7" refX="3" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#F4F1EA"/></marker></defs>
+      <text x="58" y="120" font-size="9" fill="#A9BDB8" text-anchor="middle">พับ (เขียว) → เหยียด (ส้ม)</text>
+    </svg>` },
   shoulder_flex: { key:'shoulder_flex', icon:'🙋', name:'ยกแขนไปด้านหน้า', triplet:(arm)=>[LM[arm].hip,LM[arm].shoulder,LM[arm].elbow],
     defLow:20, defHigh:150, readyLabel:'แขนแนบลำตัว', targetLabel:'ยกแขนขึ้นสุด', midLabel:'กำลังยกแขน',
-    tip:'ยืนหันข้างลำตัวให้กล้อง (มุมข้าง) แล้วยกแขนตรงไปด้านหน้า' },
+    tip:'ยืนหันข้างลำตัวให้กล้อง (มุมข้าง) แล้วยกแขนตรงไปด้านหน้า',
+    steps:['ยืนหรือนั่งตัวตรง หันข้างลำตัวเข้าหากล้อง','ปล่อยแขนตรงแนบลำตัว (จุดเริ่มต้น)','ยกแขนตรง ๆ ไปด้านหน้าขึ้นช้า ๆ จนสุดที่ทำได้','ค่อย ๆ ลดแขนกลับตำแหน่งเริ่มต้น ทำซ้ำ'],
+    demoSvg:`<svg viewBox="0 0 160 130" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="60" cy="24" r="11" fill="none" stroke="#A9BDB8" stroke-width="3"/>
+      <line x1="60" y1="35" x2="60" y2="90" stroke="#A9BDB8" stroke-width="4" stroke-linecap="round"/>
+      <line x1="60" y1="90" x2="46" y2="118" stroke="#A9BDB8" stroke-width="4" stroke-linecap="round"/>
+      <line x1="60" y1="90" x2="74" y2="118" stroke="#A9BDB8" stroke-width="4" stroke-linecap="round"/>
+      <line x1="60" y1="46" x2="58" y2="95" stroke="#3FCB7C" stroke-width="5" stroke-linecap="round" stroke-dasharray="5,4"/>
+      <line x1="60" y1="46" x2="122" y2="30" stroke="#E8935B" stroke-width="5" stroke-linecap="round"/>
+      <path d="M 78 90 Q 90 60 108 42" fill="none" stroke="#F4F1EA" stroke-width="2.5" marker-end="url(#arrSf)"/>
+      <defs><marker id="arrSf" markerWidth="7" markerHeight="7" refX="3" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#F4F1EA"/></marker></defs>
+      <text x="70" y="127" font-size="9" fill="#A9BDB8" text-anchor="middle">แนบลำตัว (เขียว) → ยกหน้า (ส้ม)</text>
+    </svg>` },
   shoulder_abduct: { key:'shoulder_abduct', icon:'🤸', name:'กางแขนออกด้านข้าง', triplet:(arm)=>[LM[arm].hip,LM[arm].shoulder,LM[arm].elbow],
     defLow:20, defHigh:90, readyLabel:'แขนแนบลำตัว', targetLabel:'กางแขนถึงระดับไหล่', midLabel:'กำลังกางแขน',
-    tip:'หันหน้าเข้ากล้องตรง ๆ ให้เห็นทั้งลำตัว แล้วกางแขนออกด้านข้าง' }
+    tip:'หันหน้าเข้ากล้องตรง ๆ ให้เห็นทั้งลำตัว แล้วกางแขนออกด้านข้าง',
+    steps:['ยืนหรือนั่งตัวตรง หันหน้าเข้าหากล้อง','ปล่อยแขนตรงแนบลำตัวทั้งสองข้าง','กางแขนตรง ๆ ออกด้านข้างขึ้นช้า ๆ จนถึงระดับไหล่','ค่อย ๆ ลดแขนกลับแนบลำตัว ทำซ้ำ'],
+    demoSvg:`<svg viewBox="0 0 160 130" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="80" cy="24" r="11" fill="none" stroke="#A9BDB8" stroke-width="3"/>
+      <line x1="80" y1="35" x2="80" y2="90" stroke="#A9BDB8" stroke-width="4" stroke-linecap="round"/>
+      <line x1="80" y1="90" x2="66" y2="118" stroke="#A9BDB8" stroke-width="4" stroke-linecap="round"/>
+      <line x1="80" y1="90" x2="94" y2="118" stroke="#A9BDB8" stroke-width="4" stroke-linecap="round"/>
+      <line x1="80" y1="46" x2="78" y2="95" stroke="#3FCB7C" stroke-width="5" stroke-linecap="round" stroke-dasharray="5,4"/>
+      <line x1="80" y1="46" x2="132" y2="46" stroke="#E8935B" stroke-width="5" stroke-linecap="round"/>
+      <path d="M 92 80 Q 108 65 122 52" fill="none" stroke="#F4F1EA" stroke-width="2.5" marker-end="url(#arrAb)"/>
+      <defs><marker id="arrAb" markerWidth="7" markerHeight="7" refX="3" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#F4F1EA"/></marker></defs>
+      <text x="88" y="127" font-size="9" fill="#A9BDB8" text-anchor="middle">แนบลำตัว (เขียว) → กางข้าง (ส้ม)</text>
+    </svg>` }
 };
 const MODEL_PATHS = {
   fast: "https://storage.googleapis.com/mediapipe-models/pose_landmarker/pose_landmarker_lite/float16/1/pose_landmarker_lite.task",
@@ -362,6 +427,7 @@ let paused = false;
 let calibrating = false;
 let angleFilter = new OneEuroFilter();
 let lastRawAngle = null;
+let outlierStreak = 0;
 let smoothedAngle = null;
 let confidence = 0;
 let stage = null;
@@ -424,6 +490,12 @@ const exerciseListEl = document.getElementById('exercise-list');
 const sheetExerciseListEl = document.getElementById('sheet-exercise-list');
 const sheetBackdrop = document.getElementById('sheet-backdrop');
 const sheetClose = document.getElementById('sheet-close');
+const exampleBackdrop = document.getElementById('example-backdrop');
+const exampleTitle = document.getElementById('example-title');
+const exampleSvgWrap = document.getElementById('example-svg-wrap');
+const exampleStepsEl = document.getElementById('example-steps');
+const exampleSelectBtn = document.getElementById('example-select-btn');
+const exampleCloseBtn = document.getElementById('example-close-btn');
 const pauseBtn = document.getElementById('pause-btn');
 const resumeBtn = document.getElementById('resume-btn');
 const resetBtn = document.getElementById('reset-btn');
@@ -462,12 +534,30 @@ function updateCalibStatusBox(){
 
 // ===================== Exercise picker UI =====================
 function buildExerciseCard(ex, container, onPick){
-  const card = document.createElement('button');
+  const card = document.createElement('div');
   card.className = 'exercise-card' + (ex.key === selectedExerciseKey ? ' active' : '');
   card.dataset.key = ex.key;
-  card.innerHTML = `<div class="ex-icon">${ex.icon}</div><div class="ex-text"><div class="ex-name">${ex.name}</div><div class="ex-tip">${ex.tip}</div></div>`;
-  card.onclick = () => onPick(ex.key);
+  card.innerHTML = `
+    <button type="button" class="ex-select-btn">
+      <div class="ex-icon">${ex.icon}</div>
+      <div class="ex-text"><div class="ex-name">${ex.name}</div><div class="ex-tip">${ex.tip}</div></div>
+    </button>
+    <button type="button" class="ex-info-btn" title="ดูตัวอย่างท่า">ℹ️</button>`;
+  card.querySelector('.ex-select-btn').onclick = () => onPick(ex.key);
+  card.querySelector('.ex-info-btn').onclick = (e) => { e.stopPropagation(); openExampleSheet(ex.key); };
   container.appendChild(card);
+}
+function openExampleSheet(key){
+  const ex = EXERCISES[key];
+  exampleTitle.textContent = ex.name;
+  exampleSvgWrap.innerHTML = ex.demoSvg;
+  exampleStepsEl.innerHTML = ex.steps.map((s,i)=>`<li><span class="step-num">${i+1}</span>${s}</li>`).join('');
+  exampleSelectBtn.onclick = () => {
+    setExercise(key, true);
+    exampleBackdrop.style.display = 'none';
+    sheetBackdrop.style.display = 'none';
+  };
+  exampleBackdrop.style.display = 'flex';
 }
 function renderExerciseLists(){
   exerciseListEl.innerHTML = ''; sheetExerciseListEl.innerHTML = '';
@@ -477,7 +567,7 @@ function renderExerciseLists(){
   });
 }
 function resetTrackingState(){
-  stage = null; smoothedAngle = null; lastRawAngle = null; framesInZone = 0;
+  stage = null; smoothedAngle = null; lastRawAngle = null; framesInZone = 0; outlierStreak = 0;
   angleFilter.reset();
   stagePill.textContent = 'รอเริ่ม';
 }
@@ -504,6 +594,8 @@ armRightBtn.onclick = () => setArm('right');
 changeExBtn.onclick = () => { sheetBackdrop.style.display = 'flex'; };
 sheetClose.onclick = () => { sheetBackdrop.style.display = 'none'; };
 sheetBackdrop.onclick = (e) => { if (e.target === sheetBackdrop) sheetBackdrop.style.display = 'none'; };
+exampleCloseBtn.onclick = () => { exampleBackdrop.style.display = 'none'; };
+exampleBackdrop.onclick = (e) => { if (e.target === exampleBackdrop) exampleBackdrop.style.display = 'none'; };
 
 srcDevice.onclick = () => { mediaSource='device'; srcDevice.classList.add('active'); srcIpcam.classList.remove('active'); ipcamField.style.display='none'; };
 srcIpcam.onclick = () => { mediaSource='ipcam'; srcIpcam.classList.add('active'); srcDevice.classList.remove('active'); ipcamField.style.display='block'; };
@@ -611,12 +703,16 @@ switchCamBtn.onclick = async () => {
   try{ await startDeviceCamera(); resizeCanvas(); } catch(e){ showBanner('ไม่สามารถสลับกล้องได้: ' + e.message); }
 };
 
-// ===================== Angle math (true 3D) =====================
+// ===================== Angle math (2D, X-Y plane) =====================
+// NOTE: MediaPipe's Z (depth) estimate from a single camera is considerably noisier
+// than X/Y, especially frame-to-frame. Using it in the angle calculation was the main
+// cause of the unstable/jumping degree readings. The 2D plane angle is far steadier
+// for a person facing/side-on to a single camera, which is how this app is used.
 function angleAt3D(a, b, c){
-  const v1 = { x: a.x-b.x, y: a.y-b.y, z: (a.z||0)-(b.z||0) };
-  const v2 = { x: c.x-b.x, y: c.y-b.y, z: (c.z||0)-(b.z||0) };
-  const dot = v1.x*v2.x + v1.y*v2.y + v1.z*v2.z;
-  const m1 = Math.sqrt(v1.x**2+v1.y**2+v1.z**2), m2 = Math.sqrt(v2.x**2+v2.y**2+v2.z**2);
+  const v1 = { x: a.x-b.x, y: a.y-b.y };
+  const v2 = { x: c.x-b.x, y: c.y-b.y };
+  const dot = v1.x*v2.x + v1.y*v2.y;
+  const m1 = Math.sqrt(v1.x**2+v1.y**2), m2 = Math.sqrt(v2.x**2+v2.y**2);
   if (m1 === 0 || m2 === 0) return null;
   let cosT = Math.max(-1, Math.min(1, dot/(m1*m2)));
   return Math.acos(cosT) * (180/Math.PI);
@@ -672,9 +768,16 @@ function predictLoop(){
         noPoseFrames = 0; showOutframe(false); hideBanner();
         const rawAngle = angleAt3D(a,b,c);
         if (rawAngle !== null){
-          const isOutlier = lastRawAngle !== null && Math.abs(rawAngle - lastRawAngle) > 60;
+          const isSpike = smoothedAngle !== null && Math.abs(rawAngle - smoothedAngle) > 55;
+          if (isSpike){
+            outlierStreak = (lastRawAngle !== null && Math.abs(rawAngle - lastRawAngle) < 15) ? outlierStreak + 1 : 1;
+          } else {
+            outlierStreak = 0;
+          }
           lastRawAngle = rawAngle;
-          if (!isOutlier) smoothedAngle = angleFilter.filter(rawAngle, performance.now());
+          // Accept the reading unless it's a lone one-frame spike; 3+ consistent
+          // readings in a row means it's real (fast) movement, not sensor noise.
+          if (!isSpike || outlierStreak >= 3) smoothedAngle = angleFilter.filter(rawAngle, performance.now());
 
           if (smoothedAngle !== null){
             const isTargetZone = smoothedAngle < th.low || smoothedAngle > th.high;
@@ -887,6 +990,13 @@ function buildRomChartData(hist, exerciseKey){
 }
 
 function renderCharts(){
+  if (typeof Chart === 'undefined'){
+    chartDailyEmpty.textContent = 'โหลดไลบรารีกราฟไม่สำเร็จ (Chart.js) กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ตแล้วลองเปิดหน้านี้ใหม่';
+    chartDailyEmpty.classList.remove('hidden');
+    chartRomEmpty.textContent = 'โหลดไลบรารีกราฟไม่สำเร็จ (Chart.js)';
+    chartRomEmpty.classList.remove('hidden');
+    return;
+  }
   const hist = loadHistory();
 
   // Summary cards
@@ -900,7 +1010,13 @@ function renderCharts(){
   const dailyData = buildDailyChartData(hist);
   const hasDaily = dailyData.data.some(v => v > 0);
   chartDailyEmpty.classList.toggle('hidden', hasDaily);
-  const dailyCtx = document.getElementById('chart-daily').getContext('2d');
+  // Force explicit pixel dimensions before creating the chart: right after the stats
+  // screen becomes visible, the canvas's parent may not have finished layout yet, which
+  // makes Chart.js read a 0-width canvas and render nothing until a later resize event.
+  const dailyCanvas = document.getElementById('chart-daily');
+  dailyCanvas.width = dailyCanvas.parentElement.clientWidth;
+  dailyCanvas.height = dailyCanvas.parentElement.clientHeight;
+  const dailyCtx = dailyCanvas.getContext('2d');
   if (charts.daily) charts.daily.destroy();
   charts.daily = new Chart(dailyCtx, {
     type: 'bar',
@@ -950,12 +1066,16 @@ function renderCharts(){
   }
 }
 function renderRomChart(){
+  if (typeof Chart === 'undefined') return;
   const hist = loadHistory();
   const key = romExerciseSelect.value || 'all';
   const romData = buildRomChartData(hist, key);
   const hasRom = romData.data.length > 0;
   chartRomEmpty.classList.toggle('hidden', hasRom);
-  const romCtx = document.getElementById('chart-rom').getContext('2d');
+  const romCanvas = document.getElementById('chart-rom');
+  romCanvas.width = romCanvas.parentElement.clientWidth;
+  romCanvas.height = romCanvas.parentElement.clientHeight;
+  const romCtx = romCanvas.getContext('2d');
   if (charts.rom) charts.rom.destroy();
   charts.rom = new Chart(romCtx, {
     type: 'line',
@@ -971,7 +1091,10 @@ function renderRomChart(){
   });
 }
 
-function openStats(){ statsScreen.style.display = 'flex'; renderCharts(); }
+function openStats(){
+  statsScreen.style.display = 'flex';
+  requestAnimationFrame(() => requestAnimationFrame(renderCharts));
+}
 function closeStats(){ statsScreen.style.display = 'none'; }
 statsBtn.onclick = openStats;
 viewStatsLink.onclick = openStats;
@@ -1043,7 +1166,10 @@ startBtn.onclick = async () => {
 window.addEventListener('beforeunload', () => { if (running && repCount > 0) commitSetToHistory(); });
 
 renderExerciseLists();
-window.addEventListener('resize', () => resizeCanvas());
+window.addEventListener('resize', () => {
+  resizeCanvas();
+  if (statsScreen.style.display === 'flex') renderCharts();
+});
 video.addEventListener('loadedmetadata', resizeCanvas);
 </script>
 </body>
