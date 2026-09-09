@@ -337,14 +337,11 @@ class OneEuroFilter{
    ถ้าต้องการเพิ่ม/แก้ท่าบริหารใหม่ ให้แก้ตรงนี้ที่เดียว
    ════════════════════════════════════════════════════════════════════ */
 const LM = {
-  left:  { hip: 23, shoulder: 11, elbow: 13, wrist: 15, index: 19 },
-  right: { hip: 24, shoulder: 12, elbow: 14, wrist: 16, index: 20 }
+  left:  { hip: 23, shoulder: 11, elbow: 13, wrist: 15 },
+  right: { hip: 24, shoulder: 12, elbow: 14, wrist: 16 }
 };
-// landmark ที่ใช้กับท่า "หมุนคอเป็นวงกลม" (ไม่ขึ้นกับแขนซ้าย/ขวา): จมูก + ไหล่ซ้าย + ไหล่ขวา
-const NECK_LM = { nose: 0, leftShoulder: 11, rightShoulder: 12 };
-
 const EXERCISES = {
-  elbow: { key:'elbow', icon:'💪', name:'งอ-เหยียดข้อศอก', type:'threshold', triplet:(arm)=>[LM[arm].shoulder,LM[arm].elbow,LM[arm].wrist],
+  elbow: { key:'elbow', icon:'💪', name:'งอ-เหยียดข้อศอก', triplet:(arm)=>[LM[arm].shoulder,LM[arm].elbow,LM[arm].wrist],
     defLow:40, defHigh:160, readyLabel:'พับแขนให้สุด', targetLabel:'เหยียดแขนออก', midLabel:'กำลังเคลื่อนไหว',
     tip:'วางกล้องด้านข้างลำตัว (มุมข้าง) ให้เห็นไหล่ถึงมือชัดเจน',
     steps:['นั่งหรือยืนตัวตรง วางต้นแขนแนบลำตัว','งอข้อศอกยกปลายแขนขึ้นหาไหล่ให้สุด (มุมแคบ)','ค่อย ๆ เหยียดแขนออกจนสุดจนแขนตรง (มุมกว้าง)','ทำสลับพับ-เหยียดซ้ำตามจำนวนที่ต้องการ'],
@@ -361,7 +358,7 @@ const EXERCISES = {
       <defs><marker id="arrEl" markerWidth="7" markerHeight="7" refX="3" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#F4F1EA"/></marker></defs>
       <text x="58" y="120" font-size="9" fill="#A9BDB8" text-anchor="middle">พับ (เขียว) → เหยียด (ส้ม)</text>
     </svg>` },
-  shoulder_flex: { key:'shoulder_flex', icon:'🙋', name:'ยกแขนไปด้านหน้า', type:'threshold', triplet:(arm)=>[LM[arm].hip,LM[arm].shoulder,LM[arm].elbow],
+  shoulder_flex: { key:'shoulder_flex', icon:'🙋', name:'ยกแขนไปด้านหน้า', triplet:(arm)=>[LM[arm].hip,LM[arm].shoulder,LM[arm].elbow],
     defLow:20, defHigh:150, readyLabel:'แขนแนบลำตัว', targetLabel:'ยกแขนขึ้นสุด', midLabel:'กำลังยกแขน',
     tip:'ยืนหันข้างลำตัวให้กล้อง (มุมข้าง) แล้วยกแขนตรงไปด้านหน้า',
     steps:['ยืนหรือนั่งตัวตรง หันข้างลำตัวเข้าหากล้อง','ปล่อยแขนตรงแนบลำตัว (จุดเริ่มต้น)','ยกแขนตรง ๆ ไปด้านหน้าขึ้นช้า ๆ จนสุดที่ทำได้','ค่อย ๆ ลดแขนกลับตำแหน่งเริ่มต้น ทำซ้ำ'],
@@ -375,36 +372,6 @@ const EXERCISES = {
       <path d="M 78 90 Q 90 60 108 42" fill="none" stroke="#F4F1EA" stroke-width="2.5" marker-end="url(#arrSf)"/>
       <defs><marker id="arrSf" markerWidth="7" markerHeight="7" refX="3" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#F4F1EA"/></marker></defs>
       <text x="70" y="127" font-size="9" fill="#A9BDB8" text-anchor="middle">แนบลำตัว (เขียว) → ยกหน้า (ส้ม)</text>
-    </svg>` },
-  wrist_flex: { key:'wrist_flex', icon:'🤚', name:'ยกข้อมือขึ้นลง', type:'threshold', triplet:(arm)=>[LM[arm].elbow,LM[arm].wrist,LM[arm].index],
-    defLow:150, defHigh:177, readyLabel:'ข้อมือตรง', targetLabel:'กระดกข้อมือสุด', midLabel:'กำลังขยับข้อมือ',
-    tip:'วางท่อนแขนพักบนโต๊ะให้มั่นคง ให้กล้องเห็นแขนถึงมือชัดเจน',
-    steps:['วางท่อนแขนพักบนโต๊ะหรือขาให้มั่นคง ปล่อยข้อมือตรง','กระดกข้อมือขึ้นช้า ๆ ให้สุดเท่าที่ทำได้','ลดข้อมือกลับตรง แล้วกระดกข้อมือลงให้สุดเท่าที่ทำได้','ทำสลับขึ้น-ลงซ้ำตามจำนวนที่ต้องการ'],
-    demoSvg:`<svg viewBox="0 0 160 130" xmlns="http://www.w3.org/2000/svg">
-      <line x1="20" y1="95" x2="95" y2="95" stroke="#A9BDB8" stroke-width="8" stroke-linecap="round"/>
-      <ellipse cx="118" cy="88" rx="22" ry="13" fill="none" stroke="#3FCB7C" stroke-width="5" stroke-dasharray="5,4" transform="rotate(-18 118 88)"/>
-      <ellipse cx="118" cy="88" rx="22" ry="13" fill="none" stroke="#E8935B" stroke-width="5" transform="rotate(24 118 88)"/>
-      <path d="M 118 62 L 118 40" stroke="#F4F1EA" stroke-width="2.5" marker-end="url(#arrWr1)"/>
-      <path d="M 118 112 L 118 128" stroke="#F4F1EA" stroke-width="2.5" marker-end="url(#arrWr2)"/>
-      <defs>
-        <marker id="arrWr1" markerWidth="7" markerHeight="7" refX="3" refY="3" orient="auto"><path d="M0,6 L3,0 L6,6 Z" fill="#F4F1EA"/></marker>
-        <marker id="arrWr2" markerWidth="7" markerHeight="7" refX="3" refY="3" orient="auto"><path d="M0,0 L6,0 L3,6 Z" fill="#F4F1EA"/></marker>
-      </defs>
-      <text x="80" y="20" font-size="9" fill="#A9BDB8" text-anchor="middle">กระดกขึ้น (เขียว) / กระดกลง (ส้ม)</text>
-    </svg>` },
-  neck_rotation: { key:'neck_rotation', icon:'🌀', name:'หมุนคอเป็นวงกลม', type:'rotation',
-    tip:'นั่งหรือยืนตัวตรง ให้กล้องเห็นใบหน้าและไหล่ชัดเจน ระบบนับ 1 ครั้งเมื่อหมุนครบ 1 รอบ',
-    steps:['นั่งหรือยืนหลังตรง ผ่อนคลายไหล่ทั้งสองข้าง','ค่อย ๆ หมุนศีรษะเป็นวงกลมช้า ๆ ไปทางเดียวจนครบ 1 รอบ','ระบบจะนับเป็น 1 ครั้งเมื่อหมุนครบรอบพอดี','ทำซ้ำตามจำนวนที่ต้องการ จะหมุนสลับทิศทางก็ได้'],
-    demoSvg:`<svg viewBox="0 0 160 130" xmlns="http://www.w3.org/2000/svg">
-      <line x1="80" y1="70" x2="60" y2="112" stroke="#A9BDB8" stroke-width="4" stroke-linecap="round"/>
-      <line x1="80" y1="70" x2="100" y2="112" stroke="#A9BDB8" stroke-width="4" stroke-linecap="round"/>
-      <line x1="80" y1="70" x2="46" y2="80" stroke="#A9BDB8" stroke-width="4" stroke-linecap="round"/>
-      <line x1="80" y1="70" x2="114" y2="80" stroke="#A9BDB8" stroke-width="4" stroke-linecap="round"/>
-      <circle cx="80" cy="46" r="20" fill="none" stroke="#A9BDB8" stroke-width="3"/>
-      <ellipse cx="80" cy="42" rx="27" ry="22" fill="none" stroke="#3FCB7C" stroke-width="3" stroke-dasharray="6,5"/>
-      <path d="M 107 42 Q 107 20 80 15" fill="none" stroke="#E8935B" stroke-width="3" marker-end="url(#arrNk)"/>
-      <defs><marker id="arrNk" markerWidth="7" markerHeight="7" refX="3" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#E8935B"/></marker></defs>
-      <text x="80" y="122" font-size="9" fill="#A9BDB8" text-anchor="middle">หมุนศีรษะช้า ๆ ครบ 1 รอบ = 1 ครั้ง</text>
     </svg>` }
 };
 const MODEL_PATHS = {
@@ -434,18 +401,11 @@ function dateKey(d){ // YYYY-MM-DD ตามเวลาท้องถิ่น
 function buildSessionRecord(existingId){
   const now = new Date();
   const ex = EXERCISES[selectedExerciseKey];
+  const th = getThresholds();
+  const avgAngle = sessionAngleStats.count ? (sessionAngleStats.sum / sessionAngleStats.count) : null;
+  const romUsed = (sessionAngleStats.max > -Infinity && sessionAngleStats.min < Infinity) ? (sessionAngleStats.max - sessionAngleStats.min) : null;
   const startedAt = sessionStartTime || now;
   const durationSec = Math.max(0, Math.round((now - startedAt)/1000));
-  const isRotation = ex.type === 'rotation';
-
-  // ท่าแบบ "threshold" (งอ-เหยียด/ยกแขน/ยกข้อมือ) มีมุมต่ำสุด-สูงสุด-เฉลี่ยให้เก็บ
-  // ท่าแบบ "rotation" (หมุนคอ) ไม่มีมุม low/high — ใช้ romUsed แทนเป็น "องศารวมที่หมุนได้ทั้งเซต"
-  const avgAngle = (!isRotation && sessionAngleStats.count) ? (sessionAngleStats.sum / sessionAngleStats.count) : null;
-  const romUsed = isRotation
-    ? Math.round(sessionRotationTotalDeg)
-    : ((sessionAngleStats.max > -Infinity && sessionAngleStats.min < Infinity) ? Math.round(sessionAngleStats.max - sessionAngleStats.min) : null);
-  const th = isRotation ? null : getThresholds();
-
   return {
     id: existingId || ('r_' + startedAt.getTime()),
     dateKey: dateKey(startedAt),
@@ -455,14 +415,13 @@ function buildSessionRecord(existingId){
     exerciseName: ex.name,
     arm: selectedArm,
     reps: repCount,
-    minAngle: (!isRotation && sessionAngleStats.min > -Infinity) ? Math.round(sessionAngleStats.min) : null,
-    maxAngle: (!isRotation && sessionAngleStats.max > -Infinity) ? Math.round(sessionAngleStats.max) : null,
+    minAngle: sessionAngleStats.min > -Infinity ? Math.round(sessionAngleStats.min) : null,
+    maxAngle: sessionAngleStats.max > -Infinity ? Math.round(sessionAngleStats.max) : null,
     avgAngle: avgAngle !== null ? Math.round(avgAngle) : null,
-    romUsed,
+    romUsed: romUsed !== null ? Math.round(romUsed) : null,
     durationSec,
-    thLow: th ? Math.round(th.low) : null,
-    thHigh: th ? Math.round(th.high) : null,
-    calibrated: isRotation ? false : !!customThresholds[thresholdKey()]
+    thLow: Math.round(th.low), thHigh: Math.round(th.high),
+    calibrated: !!customThresholds[thresholdKey()]
   };
 }
 
@@ -521,12 +480,6 @@ let sessionAngleStats = { min: Infinity, max: -Infinity, sum: 0, count: 0 };
 let currentSessionRecordId = null; // id ของ record ใน history ที่กำลังอัปเดตสดอยู่ (เซตปัจจุบัน)
 let customThresholds = {};
 let calibSamples = [];
-
-// --- STATE เฉพาะท่า "หมุนคอเป็นวงกลม" (type:'rotation') ---
-// นับรอบด้วยการสะสมมุมที่หมุนไปจริง (unwrapped) แทนการเทียบ low/high แบบท่าอื่น ๆ
-let rotationAccumDeg = 0;         // มุมสะสมของเซ็นเซอร์รอบปัจจุบัน (บวก=ตามเข็ม, ลบ=ทวนเข็ม) รีเซ็ตทุก 360°
-let lastRotationAngleDeg = null;  // มุมดิบเฟรมก่อนหน้า ใช้คำนวณ delta แบบ shortest-path
-let sessionRotationTotalDeg = 0;  // องศารวมที่หมุนได้ทั้งเซต (ใช้แสดงในประวัติแทน ROM)
 
 /* ════════════════════════════════════════════════════════════════════
    SECTION 5: DOM REFERENCES (อ้างอิง element ทั้งหมดไว้ที่เดียว)
@@ -604,13 +557,10 @@ const clearHistoryBtn = document.getElementById('clear-history-btn');
 function thresholdKey(){ return `${selectedExerciseKey}_${selectedArm}`; }
 function getThresholds(){
   const ex = EXERCISES[selectedExerciseKey];
-  if (ex.type === 'rotation') return null; // ท่าหมุนคอไม่ใช้เกณฑ์ low/high
   const custom = customThresholds[thresholdKey()];
   return custom ? custom : { low: ex.defLow, high: ex.defHigh };
 }
 function updateCalibStatusBox(){
-  const ex = EXERCISES[selectedExerciseKey];
-  if (ex.type === 'rotation'){ calibStatusBox.style.display = 'none'; return; }
   const custom = customThresholds[thresholdKey()];
   if (custom){
     calibStatusBox.style.display = 'block';
@@ -657,7 +607,6 @@ function renderExerciseLists(){
 function resetTrackingState(){
   stage = null; smoothedAngle = null; lastRawAngle = null; framesInZone = 0; outlierStreak = 0;
   angleFilter.reset();
-  rotationAccumDeg = 0; lastRotationAngleDeg = null; // เผื่อเปลี่ยนมาเป็น/ออกจากท่าหมุนคอ
   stagePill.textContent = 'รอเริ่ม';
 }
 // เปลี่ยนท่า/แขนกลางเซต ถือว่าเป็นเซตใหม่ -> บันทึกเซตเก่าที่ค้างอยู่ให้จบก่อน แล้วเริ่มนับใหม่
@@ -665,7 +614,6 @@ function finalizeCurrentSetAndStartNew(){
   if (repCount > 0) commitSetToHistory();
   repCount = 0; repNum.textContent = '0'; sessionLog = [];
   sessionAngleStats = { min: Infinity, max: -Infinity, sum: 0, count: 0 };
-  sessionRotationTotalDeg = 0;
   sessionStartTime = new Date();
   currentSessionRecordId = null;
 }
@@ -841,161 +789,18 @@ function updateHud(angle, isTargetZone, ex, th){
   angleNum.textContent = Math.round(angle);
   const C = 263.9, pct = Math.max(0, Math.min(1, angle/180));
   gaugeFg.style.strokeDashoffset = C - pct*C;
-  gaugeFg.style.stroke = isTargetZone ? 'var(--moss)' : 'var(--gold)';
-  if (angle < th.low){ stagePill.textContent = ex.readyLabel; stagePill.style.background='rgba(91,122,84,0.18)'; stagePill.style.color='var(--moss)'; }
-  else if (angle > th.high){ stagePill.textContent = ex.targetLabel; stagePill.style.background='rgba(91,122,84,0.18)'; stagePill.style.color='var(--moss)'; }
-  else { stagePill.textContent = ex.midLabel; stagePill.style.background='rgba(199,154,61,0.18)'; stagePill.style.color='var(--gold)'; }
+  gaugeFg.style.stroke = isTargetZone ? 'var(--green)' : 'var(--teal)';
+  if (angle < th.low){ stagePill.textContent = ex.readyLabel; stagePill.style.background='rgba(63,203,124,0.18)'; stagePill.style.color='#3FCB7C'; stagePill.style.borderLeftColor='#3FCB7C'; }
+  else if (angle > th.high){ stagePill.textContent = ex.targetLabel; stagePill.style.background='rgba(63,203,124,0.18)'; stagePill.style.color='#3FCB7C'; stagePill.style.borderLeftColor='#3FCB7C'; }
+  else { stagePill.textContent = ex.midLabel; stagePill.style.background='rgba(232,147,91,0.18)'; stagePill.style.color='#E8935B'; stagePill.style.borderLeftColor='#E8935B'; }
   const pct2 = Math.round(confidence*100);
   confText.textContent = `ความมั่นใจ ${pct2}%`;
-  confDot.style.background = confidence > 0.7 ? 'var(--moss)' : confidence > 0.4 ? 'var(--gold)' : 'var(--brick)';
-}
-
-/* ---------- ส่วนเสริมสำหรับท่า "หมุนคอเป็นวงกลม" (type:'rotation') ----------
-   แทนที่จะเทียบมุม low/high แบบท่าอื่น เราวัด "มุมทิศทาง" ของจมูกรอบจุดกึ่งกลางไหล่
-   ในแต่ละเฟรม แล้วสะสมระยะที่หมุนไปจริง (unwrap มุมที่วนข้าม ±180° ให้ต่อเนื่อง)
-   นับ 1 ครั้งทุกครั้งที่สะสมครบ 360° (ไม่สนทิศทาง จะหมุนตามหรือทวนเข็มก็นับ) */
-function angleDeltaShortest(fromDeg, toDeg){
-  // ระยะเชิงมุมที่สั้นที่สุดจาก fromDeg ไป toDeg อยู่ในช่วง (-180, 180]
-  let d = toDeg - fromDeg;
-  d = ((d + 180) % 360 + 360) % 360 - 180;
-  return d;
-}
-function drawRotationTracker(nose, center, progressFrac, colorOk){
-  const color = colorOk ? '#3FCB7C' : '#C79A3D';
-  const pCenter = toScreen(center), pNose = toScreen(nose);
-  const r = Math.hypot(pNose.x-pCenter.x, pNose.y-pCenter.y) || 1;
-  // วงแหวนพื้นหลัง (เต็มรอบ จาง ๆ)
-  ctx.lineWidth = Math.max(3, videoRect.w * 0.008);
-  ctx.strokeStyle = 'rgba(255,255,255,0.25)';
-  ctx.beginPath(); ctx.arc(pCenter.x, pCenter.y, r, 0, Math.PI*2); ctx.stroke();
-  // ส่วนโค้งแสดงความคืบหน้าของรอบปัจจุบัน (เริ่มจากตำแหน่งจมูก 12 นาฬิกาสมมติ)
-  ctx.strokeStyle = color;
-  ctx.beginPath(); ctx.arc(pCenter.x, pCenter.y, r, -Math.PI/2, -Math.PI/2 + progressFrac*Math.PI*2); ctx.stroke();
-  // จุดศูนย์กลาง + เส้นไปจมูก
-  ctx.fillStyle = color;
-  ctx.beginPath(); ctx.arc(pCenter.x, pCenter.y, Math.max(4, videoRect.w*0.01), 0, Math.PI*2); ctx.fill();
-  ctx.beginPath(); ctx.arc(pNose.x, pNose.y, Math.max(6, videoRect.w*0.016), 0, Math.PI*2); ctx.fill();
-}
-function updateRotationHud(progressDeg, isNearComplete){
-  angleNum.textContent = Math.round(progressDeg);
-  const C = 263.9, pct = Math.max(0, Math.min(1, progressDeg/360));
-  gaugeFg.style.strokeDashoffset = C - pct*C;
-  gaugeFg.style.stroke = isNearComplete ? 'var(--moss)' : 'var(--gold)';
-  if (progressDeg < 30){ stagePill.textContent = 'เริ่มหมุน'; stagePill.style.background='rgba(199,154,61,0.18)'; stagePill.style.color='var(--gold)'; }
-  else if (progressDeg > 330){ stagePill.textContent = 'ใกล้ครบรอบ!'; stagePill.style.background='rgba(91,122,84,0.18)'; stagePill.style.color='var(--moss)'; }
-  else { stagePill.textContent = 'กำลังหมุน...'; stagePill.style.background='rgba(199,154,61,0.18)'; stagePill.style.color='var(--gold)'; }
-  const pct2 = Math.round(confidence*100);
-  confText.textContent = `ความมั่นใจ ${pct2}%`;
-  confDot.style.background = confidence > 0.7 ? 'var(--moss)' : confidence > 0.4 ? 'var(--gold)' : 'var(--brick)';
+  confDot.style.background = confidence > 0.7 ? '#3FCB7C' : confidence > 0.4 ? '#E8935B' : '#E8574A';
 }
 
 /* ════════════════════════════════════════════════════════════════════
    SECTION 13: MAIN LOOP - รันทุกเฟรม ตรวจจับท่าทาง นับ rep และบันทึกสด
-   แยกเป็น 2 เส้นทางตามชนิดท่า: processThresholdFrame (งอ-เหยียด/ยกแขน/ยกข้อมือ)
-   และ processRotationFrame (หมุนคอ) — ดูรายละเอียดอัลกอริทึมแต่ละแบบใน SECTION 12
    ════════════════════════════════════════════════════════════════════ */
-
-// เส้นทางสำหรับท่าที่นับด้วยเกณฑ์มุม low/high (elbow, shoulder_flex, wrist_flex)
-function processThresholdFrame(ex, lm){
-  const th = getThresholds();
-  const [ia, ib, ic] = ex.triplet(selectedArm);
-  const a = lm[ia], b = lm[ib], c = lm[ic];
-  const visArr = [a,b,c].map(p => p.visibility === undefined ? 1 : p.visibility);
-  confidence = visArr.reduce((s,v)=>s+v,0)/3;
-  const visOk = visArr.every(v => v > 0.4);
-
-  if (!visOk){
-    noPoseFrames += 1;
-    if (noPoseFrames > 15){ showOutframe(true); hideBanner(); }
-    return;
-  }
-  noPoseFrames = 0; showOutframe(false); hideBanner();
-  const rawAngle = angleAt3D(a,b,c);
-  if (rawAngle === null) return;
-
-  const isSpike = smoothedAngle !== null && Math.abs(rawAngle - smoothedAngle) > 55;
-  if (isSpike){
-    outlierStreak = (lastRawAngle !== null && Math.abs(rawAngle - lastRawAngle) < 15) ? outlierStreak + 1 : 1;
-  } else {
-    outlierStreak = 0;
-  }
-  lastRawAngle = rawAngle;
-  // รับค่าไว้เสมอ ยกเว้นเป็น spike เดี่ยว ๆ 1 เฟรม; ถ้า spike ต่อกัน 3+ เฟรม แปลว่าเคลื่อนไหวจริง (เร็ว) ไม่ใช่ noise
-  if (!isSpike || outlierStreak >= 3) smoothedAngle = angleFilter.filter(rawAngle, performance.now());
-  if (smoothedAngle === null) return;
-
-  const isTargetZone = smoothedAngle < th.low || smoothedAngle > th.high;
-  updateHud(smoothedAngle, isTargetZone, ex, th);
-  drawSkeleton(a,b,c,isTargetZone);
-
-  // เก็บสถิติมุม (min/max/avg) ต่อเนื่องสำหรับเซตนี้
-  if (smoothedAngle < sessionAngleStats.min) sessionAngleStats.min = smoothedAngle;
-  if (smoothedAngle > sessionAngleStats.max) sessionAngleStats.max = smoothedAngle;
-  sessionAngleStats.sum += smoothedAngle; sessionAngleStats.count += 1;
-
-  if (smoothedAngle < th.low){ stage = 'ready'; framesInZone = 0; }
-  else if (smoothedAngle > th.high && stage === 'ready'){
-    framesInZone += 1;
-    if (framesInZone >= REP_DEBOUNCE_FRAMES){
-      repCount += 1;
-      repNum.textContent = repCount;
-      stage = 'reached'; framesInZone = 0;
-      repNum.style.transform = 'scale(1.15)';
-      setTimeout(() => { repNum.style.transform = 'scale(1)'; }, 180);
-      sessionLog.push({ idx: repCount, time: new Date().toLocaleTimeString('th-TH'), angle: Math.round(smoothedAngle) });
-      beep(); speakCount(repCount); showRepToast(repCount);
-      upsertLiveSessionToHistory(); // บันทึกลงประวัติทันทีทุกครั้งที่นับครบ 1 ครั้ง
-    }
-  } else { framesInZone = 0; }
-}
-
-// เส้นทางสำหรับท่า "หมุนคอเป็นวงกลม" (neck_rotation) — นับรอบด้วยมุมสะสม ไม่ใช่ threshold
-function processRotationFrame(ex, lm){
-  const nose = lm[NECK_LM.nose], ls = lm[NECK_LM.leftShoulder], rs = lm[NECK_LM.rightShoulder];
-  const visArr = [nose, ls, rs].map(p => p.visibility === undefined ? 1 : p.visibility);
-  confidence = visArr.reduce((s,v)=>s+v,0)/3;
-  const visOk = visArr.every(v => v > 0.4);
-
-  if (!visOk){
-    noPoseFrames += 1;
-    if (noPoseFrames > 15){ showOutframe(true); hideBanner(); }
-    return;
-  }
-  noPoseFrames = 0; showOutframe(false); hideBanner();
-
-  const center = { x: (ls.x+rs.x)/2, y: (ls.y+rs.y)/2 };
-  const radius = Math.hypot(nose.x-center.x, nose.y-center.y);
-  if (radius < 0.03) return; // จมูกอยู่ใกล้จุดศูนย์กลางเกินไป มุมจะไม่เสถียร ข้ามเฟรมนี้
-
-  const angleDeg = Math.atan2(nose.y-center.y, nose.x-center.x) * (180/Math.PI);
-  if (lastRotationAngleDeg !== null){
-    let delta = angleDeltaShortest(lastRotationAngleDeg, angleDeg);
-    delta = Math.max(-40, Math.min(40, delta)); // กันเฟรมเพี้ยนกระโดดมุมผิดปกติ
-    if (Math.abs(delta) > 0.5){ // dead-zone กันสั่นตอนอยู่นิ่ง
-      rotationAccumDeg += delta;
-      sessionRotationTotalDeg += Math.abs(delta);
-    }
-  }
-  lastRotationAngleDeg = angleDeg;
-
-  // นับครบ 1 รอบทุกครั้งที่สะสมถึง ±360° (เผื่อกรณีขยับเร็วจนข้ามหลายรอบในเฟรมเดียวได้ยาก แต่ใช้ while กันไว้)
-  while (Math.abs(rotationAccumDeg) >= 360){
-    rotationAccumDeg -= 360 * Math.sign(rotationAccumDeg);
-    repCount += 1;
-    repNum.textContent = repCount;
-    repNum.style.transform = 'scale(1.15)';
-    setTimeout(() => { repNum.style.transform = 'scale(1)'; }, 180);
-    sessionLog.push({ idx: repCount, time: new Date().toLocaleTimeString('th-TH'), angle: 360 });
-    beep(); speakCount(repCount); showRepToast(repCount);
-    upsertLiveSessionToHistory();
-  }
-
-  const progressDeg = Math.abs(rotationAccumDeg);
-  const isNearComplete = progressDeg > 330;
-  updateRotationHud(progressDeg, isNearComplete);
-  drawRotationTracker(nose, center, progressDeg/360, isNearComplete);
-}
-
 function predictLoop(){
   if (!running || paused || calibrating){ requestAnimationFrame(predictLoop); return; }
   const activeEl = getActiveEl();
@@ -1006,11 +811,60 @@ function predictLoop(){
     const result = poseLandmarker.detectForVideo(activeEl, performance.now());
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     const ex = EXERCISES[selectedExerciseKey];
+    const th = getThresholds();
 
     if (result.landmarks && result.landmarks.length > 0){
       const lm = result.landmarks[0];
-      if (ex.type === 'rotation') processRotationFrame(ex, lm);
-      else processThresholdFrame(ex, lm);
+      const [ia, ib, ic] = ex.triplet(selectedArm);
+      const a = lm[ia], b = lm[ib], c = lm[ic];
+      const visArr = [a,b,c].map(p => p.visibility === undefined ? 1 : p.visibility);
+      confidence = visArr.reduce((s,v)=>s+v,0)/3;
+      const visOk = visArr.every(v => v > 0.4);
+
+      if (!visOk){
+        noPoseFrames += 1;
+        if (noPoseFrames > 15){ showOutframe(true); hideBanner(); }
+      } else {
+        noPoseFrames = 0; showOutframe(false); hideBanner();
+        const rawAngle = angleAt3D(a,b,c);
+        if (rawAngle !== null){
+          const isSpike = smoothedAngle !== null && Math.abs(rawAngle - smoothedAngle) > 55;
+          if (isSpike){
+            outlierStreak = (lastRawAngle !== null && Math.abs(rawAngle - lastRawAngle) < 15) ? outlierStreak + 1 : 1;
+          } else {
+            outlierStreak = 0;
+          }
+          lastRawAngle = rawAngle;
+          // รับค่าไว้เสมอ ยกเว้นเป็น spike เดี่ยว ๆ 1 เฟรม; ถ้า spike ต่อกัน 3+ เฟรม แปลว่าเคลื่อนไหวจริง (เร็ว) ไม่ใช่ noise
+          if (!isSpike || outlierStreak >= 3) smoothedAngle = angleFilter.filter(rawAngle, performance.now());
+
+          if (smoothedAngle !== null){
+            const isTargetZone = smoothedAngle < th.low || smoothedAngle > th.high;
+            updateHud(smoothedAngle, isTargetZone, ex, th);
+            drawSkeleton(a,b,c,isTargetZone);
+
+            // เก็บสถิติมุม (min/max/avg) ต่อเนื่องสำหรับเซตนี้
+            if (smoothedAngle < sessionAngleStats.min) sessionAngleStats.min = smoothedAngle;
+            if (smoothedAngle > sessionAngleStats.max) sessionAngleStats.max = smoothedAngle;
+            sessionAngleStats.sum += smoothedAngle; sessionAngleStats.count += 1;
+
+            if (smoothedAngle < th.low){ stage = 'ready'; framesInZone = 0; }
+            else if (smoothedAngle > th.high && stage === 'ready'){
+              framesInZone += 1;
+              if (framesInZone >= REP_DEBOUNCE_FRAMES){
+                repCount += 1;
+                repNum.textContent = repCount;
+                stage = 'reached'; framesInZone = 0;
+                repNum.style.transform = 'scale(1.15)';
+                setTimeout(() => { repNum.style.transform = 'scale(1)'; }, 180);
+                sessionLog.push({ idx: repCount, time: new Date().toLocaleTimeString('th-TH'), angle: Math.round(smoothedAngle) });
+                beep(); speakCount(repCount); showRepToast(repCount);
+                upsertLiveSessionToHistory(); // บันทึกลงประวัติทันทีทุกครั้งที่นับครบ 1 ครั้ง
+              }
+            } else { framesInZone = 0; }
+          }
+        }
+      }
     } else {
       noPoseFrames += 1;
       if (noPoseFrames > 20){ showOutframe(true); hideBanner(); }
@@ -1039,7 +893,6 @@ resetBtn.onclick = () => {
   }
   repCount = 0; repNum.textContent = '0'; sessionLog = [];
   sessionAngleStats = { min: Infinity, max: -Infinity, sum: 0, count: 0 };
-  sessionRotationTotalDeg = 0;
   sessionStartTime = new Date();
   currentSessionRecordId = null;
   resetTrackingState();
@@ -1048,20 +901,14 @@ resetBtn.onclick = () => {
 function downloadCSV(){
   const lines = [];
   const ex = EXERCISES[selectedExerciseKey];
-  const isRotation = ex.type === 'rotation';
-  const th = getThresholds(); // null สำหรับท่าหมุนคอ
+  const th = getThresholds();
   lines.push('SmartMotion AI - สรุปผลการฝึก (เซตปัจจุบัน)');
   lines.push(`เริ่มเซสชัน,${(sessionStartTime || new Date()).toLocaleString('th-TH')}`);
   lines.push(`ท่าบริหาร,${ex.name}`);
-  lines.push(`ข้างที่ฝึก,${isRotation ? '-' : (selectedArm === 'left' ? 'ซ้าย' : 'ขวา')}`);
-  if (isRotation){
-    lines.push(`เกณฑ์ที่ใช้,นับ 1 ครั้งเมื่อหมุนครบ 360°`);
-    lines.push(`องศารวมที่หมุนได้ทั้งเซต,${Math.round(sessionRotationTotalDeg)}`);
-  } else {
-    lines.push(`เกณฑ์ที่ใช้,พับ<${Math.round(th.low)}° / เหยียด>${Math.round(th.high)}°${customThresholds[thresholdKey()] ? ' (ปรับเทียบเฉพาะบุคคล)' : ' (ค่ามาตรฐาน)'}`);
-    const romUsed = (sessionAngleStats.max > -Infinity) ? Math.round(sessionAngleStats.max - sessionAngleStats.min) : '-';
-    lines.push(`ช่วงองศาที่ทำได้ (ROM),${romUsed}`);
-  }
+  lines.push(`ข้างที่ฝึก,${selectedArm === 'left' ? 'ซ้าย' : 'ขวา'}`);
+  lines.push(`เกณฑ์ที่ใช้,พับ<${Math.round(th.low)}° / เหยียด>${Math.round(th.high)}°${customThresholds[thresholdKey()] ? ' (ปรับเทียบเฉพาะบุคคล)' : ' (ค่ามาตรฐาน)'}`);
+  const romUsed = (sessionAngleStats.max > -Infinity) ? Math.round(sessionAngleStats.max - sessionAngleStats.min) : '-';
+  lines.push(`ช่วงองศาที่ทำได้ (ROM),${romUsed}`);
   lines.push(`จำนวนครั้งทั้งหมด,${repCount}`);
   lines.push('');
   lines.push('ลำดับที่,เวลา,มุมองศาขณะนับ(°)');
@@ -1121,10 +968,6 @@ function runCalibStep(stepIndex){
 }
 async function startCalibration(){
   if (!running || !poseLandmarker){ showTip('กรุณาเริ่มฝึกก่อน แล้วค่อยกดปรับเทียบ'); return; }
-  if (EXERCISES[selectedExerciseKey].type === 'rotation'){
-    showTip('ท่านี้ไม่ต้องปรับเทียบ ระบบนับครบเมื่อหมุนครบ 360° โดยอัตโนมัติ');
-    return;
-  }
   calibrating = true; calibOverlay.style.display = 'flex';
   const extended = await runCalibStep(0);
   if (extended === null){ calibrating = false; calibOverlay.style.display = 'none'; showTip('ข้ามการปรับเทียบ ใช้ค่ามาตรฐาน'); return; }
@@ -1175,17 +1018,16 @@ function renderStats(){
   } else {
     recent.forEach(r => {
       const ex = EXERCISES[r.exerciseKey];
-      const isRotation = ex && ex.type === 'rotation';
       const d = new Date(r.dateISO);
       const item = document.createElement('div');
       item.className = 'session-item';
-      const armTxt = isRotation ? '' : ` (${r.arm === 'left' ? 'ซ้าย' : 'ขวา'})`;
+      const armTxt = r.arm === 'left' ? 'ซ้าย' : 'ขวา';
       const durTxt = r.durationSec ? ` · ${Math.round(r.durationSec/60)} นาที` : '';
-      const romTxt = r.romUsed !== null ? (isRotation ? ` · หมุนรวม ${r.romUsed}°` : ` · ROM ${r.romUsed}°`) : '';
+      const romTxt = r.romUsed !== null ? ` · ROM ${r.romUsed}°` : '';
       item.innerHTML = `
         <div class="si-icon">${ex ? ex.icon : '💪'}</div>
         <div class="si-mid">
-          <div class="si-name">${ex ? ex.name : r.exerciseKey}${armTxt}</div>
+          <div class="si-name">${ex ? ex.name : r.exerciseKey} (${armTxt})</div>
           <div class="si-meta">${d.toLocaleDateString('th-TH',{day:'numeric',month:'short',year:'numeric'})} ${d.toLocaleTimeString('th-TH',{hour:'2-digit',minute:'2-digit'})}${durTxt}${romTxt}${r.calibrated ? ' · ปรับเทียบแล้ว' : ''}</div>
         </div>
         <div class="si-reps">${r.reps}</div>`;
@@ -1256,7 +1098,6 @@ startBtn.onclick = async () => {
     startScreen.classList.add('hidden');
     sessionStartTime = new Date();
     sessionAngleStats = { min: Infinity, max: -Infinity, sum: 0, count: 0 };
-    sessionRotationTotalDeg = 0; rotationAccumDeg = 0; lastRotationAngleDeg = null;
     currentSessionRecordId = null;
     running = true; paused = false;
     resizeCanvas();
