@@ -5,16 +5,23 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
 <title>SmartMotion AI - ฟื้นฟูการเคลื่อนไหวแขน</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Sora:wght@500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600;700&display=swap" rel="stylesheet">
 <style>
+  /* ══════════════════════════════════════════════════════════════════
+     DESIGN SYSTEM — "แผ่นออกกำลังกายกระดาษ" (paper exercise-chart)
+     แนวคิด: จำลองความรู้สึกของใบแนะนำกายภาพบำบัดที่คลินิกให้กลับบ้าน —
+     กระดาษสีอุ่น ตัวหนังสือหมึกเข้ม เส้นขอบทึบหนา ไม่มีเงา ไม่มีการ์ดโค้งมนแบบ SaaS
+     ส่วนที่ซ้อนทับกล้อง (ต้องอ่านง่ายบนวิดีโอ) ใช้การ์ด "หมึก" สีเข้มโปร่งแสงแทน
+     ══════════════════════════════════════════════════════════════════ */
   :root{
-    --bg:#0E1614; --panel:rgba(16,28,26,0.72); --teal:#2FBF9E; --teal-dim:#1E7A67;
-    --amber:#E8935B; --red:#E8574A; --yellow:#F4C430; --green:#3FCB7C;
-    --cream:#F4F1EA; --text-dim:#A9BDB8; --radius:26px;
+    --ink:#20241C; --ink-panel:rgba(28,32,24,0.86); --ink-line:rgba(241,236,223,0.22);
+    --paper:#F1ECDF; --paper-2:#E7DFCC; --paper-line:rgba(32,36,28,0.18);
+    --moss:#5B7A54; --moss-dim:#3F5A3C; --clay:#B5502E; --gold:#C79A3D; --brick:#9C3B2E;
+    --cream:#F5F1E6; --text-dim:#8C9186; --text-dim-ink:#B9BDAE;
+    --r:10px; --r-sm:6px;
   }
   *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
-  html,body{margin:0;padding:0;height:100%;width:100%;overflow:hidden;background:var(--bg);font-family:'Inter',sans-serif;color:var(--cream);overscroll-behavior:none;}
+  html,body{margin:0;padding:0;height:100%;width:100%;overflow:hidden;background:var(--ink);font-family:'Inter',sans-serif;color:var(--cream);overscroll-behavior:none;}
   #stage{position:fixed;inset:0;overflow:hidden;background:#000;}
   video.media-el, img.media-el, canvas.overlay{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;}
   .mirrored{transform:scaleX(-1);}
@@ -22,134 +29,132 @@
   img.media-el{display:none;}
 
   .topbar{position:absolute;top:0;left:0;right:0;padding:max(14px, env(safe-area-inset-top)) 14px 10px 14px;display:flex;align-items:center;justify-content:space-between;z-index:10;background:linear-gradient(to bottom, rgba(0,0,0,0.55), rgba(0,0,0,0));}
-  .brand{display:flex;align-items:center;gap:7px;font-family:'Sora',sans-serif;font-weight:700;font-size:12.5px;min-width:0;}
-  .brand .dot{width:9px;height:9px;border-radius:50%;background:var(--teal);box-shadow:0 0 10px var(--teal);flex:0 0 auto;}
-  .brand .exname{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:78px;color:var(--text-dim);font-weight:600;font-size:10.5px;}
+  .brand{display:flex;align-items:center;gap:8px;font-family:'Fraunces',serif;font-weight:600;font-size:14px;min-width:0;}
+  .brand .dot{width:9px;height:9px;border-radius:50%;background:var(--gold);box-shadow:0 0 0 3px rgba(199,154,61,0.25);flex:0 0 auto;}
+  .brand .exname{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:78px;color:var(--text-dim-ink);font-weight:500;font-size:10.5px;font-family:'Inter',sans-serif;}
   .topbtns{display:flex;gap:6px;}
-  .iconbtn{width:36px;height:36px;border-radius:12px;border:1px solid rgba(255,255,255,0.18);background:rgba(0,0,0,0.35);color:var(--cream);display:flex;align-items:center;justify-content:center;font-size:15px;backdrop-filter:blur(6px);}
+  .iconbtn{width:36px;height:36px;border-radius:50%;border:1.5px solid var(--ink-line);background:rgba(0,0,0,0.38);color:var(--cream);display:flex;align-items:center;justify-content:center;font-size:15px;backdrop-filter:blur(6px);}
   .iconbtn:active{background:rgba(255,255,255,0.15);}
   .iconbtn.off{opacity:0.45;}
 
-  #banner, #outframe-banner, #tip-banner{position:absolute;top:max(56px, calc(env(safe-area-inset-top) + 50px));left:14px;right:14px;z-index:12;text-align:center;border-radius:14px;display:none;box-shadow:0 6px 20px rgba(0,0,0,0.35);}
-  #banner{padding:10px 16px;background:rgba(232,87,74,0.92);font-size:13px;font-weight:600;}
-  #tip-banner{padding:10px 16px;background:rgba(47,191,158,0.92);color:#08211C;font-size:12.5px;font-weight:600;z-index:11;}
-  #outframe-banner{padding:16px 18px;background:var(--yellow);color:#3A2A00;font-family:'Sora',sans-serif;font-weight:800;font-size:16px;line-height:1.4;z-index:13;animation:pulseY 1.1s infinite;}
-  @keyframes pulseY{0%,100%{box-shadow:0 0 0 0 rgba(244,196,48,0.55);}50%{box-shadow:0 0 0 10px rgba(244,196,48,0);}}
+  #banner, #outframe-banner, #tip-banner{position:absolute;top:max(56px, calc(env(safe-area-inset-top) + 50px));left:14px;right:14px;z-index:12;text-align:center;display:none;border-radius:var(--r-sm);}
+  #banner{padding:10px 16px;background:var(--brick);font-size:13px;font-weight:600;color:var(--cream);}
+  #tip-banner{padding:10px 16px;background:var(--gold);color:#2B2107;font-size:12.5px;font-weight:700;z-index:11;}
+  #outframe-banner{padding:16px 18px;background:var(--paper);color:var(--brick);font-family:'Fraunces',serif;font-weight:700;font-size:16px;line-height:1.4;z-index:13;animation:pulseY 1.1s infinite;border:2px solid var(--brick);}
+  @keyframes pulseY{0%,100%{box-shadow:0 0 0 0 rgba(156,59,46,0.35);}50%{box-shadow:0 0 0 9px rgba(156,59,46,0);}}
 
-  #rep-toast{position:absolute;top:36%;left:50%;transform:translate(-50%,-50%) scale(0.85);z-index:14;font-family:'Sora',sans-serif;font-weight:800;font-size:24px;color:var(--bg);background:var(--green);padding:14px 26px;border-radius:20px;opacity:0;pointer-events:none;box-shadow:0 14px 40px rgba(63,203,124,0.45);transition:opacity 0.22s ease, transform 0.22s ease;text-align:center;}
-  #rep-toast.show{opacity:1;transform:translate(-50%,-50%) scale(1);}
+  #rep-toast{position:absolute;top:36%;left:50%;transform:translate(-50%,-50%) rotate(-4deg) scale(0.85);z-index:14;font-family:'Fraunces',serif;font-weight:700;font-size:23px;color:var(--cream);background:var(--moss);padding:13px 26px;border-radius:var(--r-sm);opacity:0;pointer-events:none;box-shadow:0 12px 30px rgba(0,0,0,0.35);transition:opacity 0.22s ease, transform 0.22s ease;text-align:center;border:2px solid rgba(241,236,223,0.5);}
+  #rep-toast.show{opacity:1;transform:translate(-50%,-50%) rotate(-2deg) scale(1);}
 
-  #pause-overlay, #calib-overlay{position:absolute;inset:0;z-index:15;background:rgba(6,12,11,0.88);display:none;flex-direction:column;align-items:center;justify-content:center;gap:16px;text-align:center;padding:24px;}
-  #pause-overlay h2, #calib-overlay h2{font-family:'Sora',sans-serif;font-size:22px;margin:0;}
-  #pause-overlay p, #calib-overlay p{color:var(--text-dim);font-size:13px;margin:0;max-width:290px;line-height:1.5;}
-  #resume-btn, .calib-btn{font-family:'Sora',sans-serif;font-weight:700;font-size:15px;color:var(--bg);background:var(--teal);border:none;border-radius:16px;padding:14px 36px;}
-  .calib-btn.secondary{background:rgba(255,255,255,0.10);color:var(--cream);}
-  #calib-overlay .calib-angle{font-family:'Sora',sans-serif;font-weight:800;font-size:52px;color:var(--teal);}
-  #calib-overlay .calib-ring{width:120px;height:120px;border-radius:50%;border:4px solid rgba(255,255,255,0.15);border-top-color:var(--teal);display:flex;align-items:center;justify-content:center;animation:spin 1.6s linear infinite;}
-  #calib-overlay .calib-ring.still{animation:none;border-top-color:rgba(255,255,255,0.15);}
+  #pause-overlay, #calib-overlay{position:absolute;inset:0;z-index:15;background:rgba(15,18,12,0.94);display:none;flex-direction:column;align-items:center;justify-content:center;gap:16px;text-align:center;padding:24px;}
+  #pause-overlay h2, #calib-overlay h2{font-family:'Fraunces',serif;font-size:23px;margin:0;font-weight:600;}
+  #pause-overlay p, #calib-overlay p{color:var(--text-dim-ink);font-size:13px;margin:0;max-width:290px;line-height:1.5;}
+  #resume-btn, .calib-btn{font-family:'Inter',sans-serif;font-weight:700;font-size:15px;color:var(--ink);background:var(--gold);border:none;border-radius:var(--r);padding:14px 36px;}
+  .calib-btn.secondary{background:transparent;color:var(--cream);border:1.5px solid var(--ink-line);}
+  #calib-overlay .calib-angle{font-family:'IBM Plex Mono',monospace;font-weight:600;font-size:48px;color:var(--gold);}
+  #calib-overlay .calib-ring{width:118px;height:118px;border-radius:50%;border:3px dashed var(--ink-line);border-top-color:var(--gold);border-top-style:solid;display:flex;align-items:center;justify-content:center;animation:spin 1.6s linear infinite;}
+  #calib-overlay .calib-ring.still{animation:none;border-top-color:var(--ink-line);border-top-style:dashed;}
   @keyframes spin{to{transform:rotate(360deg);}}
-  .calib-step-lbl{font-size:11px;letter-spacing:0.6px;text-transform:uppercase;color:var(--teal);font-weight:700;}
+  .calib-step-lbl{font-family:'IBM Plex Mono',monospace;font-size:11px;letter-spacing:0.8px;color:var(--gold);font-weight:600;}
   .calib-btn-row{display:flex;gap:10px;}
 
   .ctrl-row{display:flex;gap:7px;margin-bottom:9px;}
-  .ctrl-btn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:8px 4px;border-radius:14px;border:1px solid rgba(255,255,255,0.14);background:rgba(16,28,26,0.72);backdrop-filter:blur(10px);color:var(--cream);font-size:9.2px;font-weight:600;}
+  .ctrl-btn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:9px 4px;border-radius:var(--r-sm);border:1.5px solid var(--ink-line);background:var(--ink-panel);backdrop-filter:blur(10px);color:var(--cream);font-size:9.2px;font-weight:600;}
   .ctrl-btn .ic{font-size:16px;}
-  .ctrl-btn.warn{color:#F4C430;}
-  .ctrl-btn.save{color:var(--teal);}
+  .ctrl-btn.warn{color:var(--gold);border-color:rgba(199,154,61,0.4);}
+  .ctrl-btn.save{color:var(--moss);border-color:rgba(91,122,84,0.5);}
 
-  .hud{position:absolute;left:0;right:0;bottom:0;z-index:10;padding:12px 14px max(16px, env(safe-area-inset-bottom)) 14px;background:linear-gradient(to top, rgba(0,0,0,0.65) 10%, rgba(0,0,0,0) 100%);}
-  .hud-panel{background:var(--panel);backdrop-filter:blur(14px);border:1px solid rgba(255,255,255,0.10);border-radius:var(--radius);padding:15px 17px;display:flex;align-items:center;gap:13px;}
+  .hud{position:absolute;left:0;right:0;bottom:0;z-index:10;padding:12px 14px max(16px, env(safe-area-inset-bottom)) 14px;background:linear-gradient(to top, rgba(0,0,0,0.62) 10%, rgba(0,0,0,0) 100%);}
+  .hud-panel{background:var(--ink-panel);backdrop-filter:blur(14px);border:1.5px solid var(--ink-line);border-radius:var(--r);padding:15px 17px;display:flex;align-items:center;gap:13px;}
   .gauge-wrap{position:relative;width:92px;height:92px;flex:0 0 auto;}
   .gauge-wrap svg{width:100%;height:100%;transform:rotate(-90deg);}
-  .gauge-bg{fill:none;stroke:rgba(255,255,255,0.10);stroke-width:9;}
-  .gauge-fg{fill:none;stroke:var(--teal);stroke-width:9;stroke-linecap:round;transition:stroke 0.25s ease;}
+  .gauge-bg{fill:none;stroke:rgba(255,255,255,0.10);stroke-width:8;}
+  .gauge-fg{fill:none;stroke:var(--gold);stroke-width:8;stroke-linecap:round;transition:stroke 0.25s ease;}
   .gauge-center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;}
-  .gauge-center .num{font-family:'Sora',sans-serif;font-weight:700;font-size:24px;line-height:1;}
-  .gauge-center .unit{font-size:8.5px;color:var(--text-dim);margin-top:2px;letter-spacing:0.5px;}
-  .hud-mid{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px;}
-  .stage-pill{align-self:flex-start;font-family:'Sora',sans-serif;font-weight:700;font-size:11.5px;padding:5px 11px;border-radius:999px;background:rgba(255,255,255,0.10);letter-spacing:0.2px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;transition:background 0.25s ease, color 0.25s ease;}
-  .confidence-row{display:flex;align-items:center;gap:6px;font-size:9.5px;color:var(--text-dim);}
-  .confidence-dot{width:7px;height:7px;border-radius:50%;background:var(--green);flex:0 0 auto;}
+  .gauge-center .num{font-family:'IBM Plex Mono',monospace;font-weight:600;font-size:23px;line-height:1;}
+  .gauge-center .unit{font-size:8.5px;color:var(--text-dim-ink);margin-top:2px;letter-spacing:0.6px;}
+  .hud-mid{flex:1;min-width:0;display:flex;flex-direction:column;gap:7px;}
+  .stage-pill{align-self:flex-start;font-family:'Inter',sans-serif;font-weight:700;font-size:11.5px;padding:5px 12px;border-radius:999px;background:rgba(255,255,255,0.10);letter-spacing:0.2px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;transition:background 0.25s ease, color 0.25s ease;}
+  .confidence-row{display:flex;align-items:center;gap:6px;font-size:9.5px;color:var(--text-dim-ink);font-family:'IBM Plex Mono',monospace;}
+  .confidence-dot{width:7px;height:7px;border-radius:50%;background:var(--moss);flex:0 0 auto;}
   .armrow{display:flex;gap:7px;align-items:center;}
-  .armrow button{font-family:'Inter',sans-serif;font-weight:600;font-size:11px;color:var(--text-dim);background:transparent;border:1px solid rgba(255,255,255,0.16);border-radius:10px;padding:5px 7px;}
-  .armrow button.active{color:var(--bg);background:var(--teal);border-color:var(--teal);}
-  .counter-wrap{flex:0 0 auto;text-align:center;padding-left:7px;border-left:1px solid rgba(255,255,255,0.14);}
-  .counter-wrap .num{font-family:'Sora',sans-serif;font-weight:800;font-size:32px;line-height:1;color:var(--teal);}
-  .counter-wrap .lbl{font-size:9px;color:var(--text-dim);margin-top:2px;letter-spacing:0.5px;}
+  .armrow button{font-family:'Inter',sans-serif;font-weight:600;font-size:11px;color:var(--text-dim-ink);background:transparent;border:1.5px solid var(--ink-line);border-radius:999px;padding:5px 10px;}
+  .armrow button.active{color:var(--ink);background:var(--gold);border-color:var(--gold);}
+  .counter-wrap{flex:0 0 auto;text-align:center;padding-left:8px;border-left:1.5px dashed var(--ink-line);}
+  .counter-wrap .num{font-family:'IBM Plex Mono',monospace;font-weight:600;font-size:32px;line-height:1;color:var(--gold);}
+  .counter-wrap .lbl{font-size:9px;color:var(--text-dim-ink);margin-top:3px;letter-spacing:0.6px;}
 
-  #start-screen{position:absolute;inset:0;z-index:20;background:radial-gradient(ellipse at top, #163330 0%, #0E1614 65%);display:flex;flex-direction:column;align-items:center;justify-content:flex-start;text-align:center;padding:max(22px, env(safe-area-inset-top)) 22px 24px 22px;overflow-y:auto;}
-  #start-screen .logo-mark{width:46px;height:46px;border-radius:16px;background:linear-gradient(135deg, var(--teal), var(--teal-dim));display:flex;align-items:center;justify-content:center;margin:4px 0 10px 0;box-shadow:0 10px 30px rgba(47,191,158,0.35);flex:0 0 auto;}
-  #start-screen h1{font-family:'Sora',sans-serif;font-size:19px;font-weight:800;margin:0 0 4px 0;}
-  #start-screen p.sub{color:var(--text-dim);font-size:11.5px;max-width:340px;margin:0 0 12px 0;line-height:1.5;}
-  .section-label{align-self:flex-start;font-size:10px;font-weight:700;color:var(--text-dim);letter-spacing:0.6px;text-transform:uppercase;margin:8px 0 7px 2px;}
+  /* ---------- หน้าจอบนพื้นกระดาษ (start / sheet / stats) ---------- */
+  #start-screen{position:absolute;inset:0;z-index:20;background:var(--paper);display:flex;flex-direction:column;align-items:center;justify-content:flex-start;text-align:center;padding:max(22px, env(safe-area-inset-top)) 22px 24px 22px;overflow-y:auto;color:var(--ink);}
+  #start-screen .logo-mark{width:50px;height:50px;border-radius:50%;background:var(--moss);display:flex;align-items:center;justify-content:center;margin:4px 0 12px 0;flex:0 0 auto;border:2px solid var(--ink);}
+  #start-screen h1{font-family:'Fraunces',serif;font-size:24px;font-weight:600;margin:0 0 6px 0;color:var(--ink);}
+  #start-screen p.sub{color:#5C6154;font-size:12px;max-width:340px;margin:0 0 14px 0;line-height:1.55;}
+  .section-label{align-self:flex-start;font-family:'Inter',sans-serif;font-size:11px;font-weight:700;color:var(--moss-dim);letter-spacing:0.3px;margin:10px 0 7px 2px;width:100%;max-width:380px;padding-bottom:5px;border-bottom:1.5px dashed var(--paper-line);}
   .exercise-list{display:flex;flex-direction:column;gap:8px;width:100%;max-width:380px;}
-  .exercise-card{display:flex;align-items:stretch;gap:6px;border-radius:15px;border:1.5px solid rgba(255,255,255,0.14);background:rgba(255,255,255,0.04);width:100%;}
+  .exercise-card{display:flex;align-items:stretch;gap:6px;border-radius:var(--r);border:1.5px solid var(--paper-line);background:#fff;width:100%;}
   .exercise-card .ex-select-btn{display:flex;align-items:center;gap:10px;text-align:left;padding:11px 6px 11px 12px;flex:1;min-width:0;background:none;border:none;color:inherit;}
   .exercise-card .ex-info-btn{flex:0 0 auto;width:38px;border:none;background:none;font-size:16px;opacity:0.85;}
-  .exercise-card .ex-icon{font-size:18px;flex:0 0 auto;width:28px;text-align:center;}
+  .exercise-card .ex-icon{font-size:19px;flex:0 0 auto;width:30px;height:30px;line-height:30px;text-align:center;border-radius:50%;background:var(--paper-2);}
   .exercise-card .ex-text{flex:1;min-width:0;}
-  .exercise-card .ex-name{font-family:'Inter',sans-serif;font-weight:700;font-size:12px;color:var(--cream);}
-  .exercise-card .ex-tip{font-size:10px;color:var(--text-dim);margin-top:2px;line-height:1.4;}
-  .exercise-card.active{border-color:var(--teal);background:rgba(47,191,158,0.14);}
-  .exercise-card.active .ex-name{color:var(--teal);}
+  .exercise-card .ex-name{font-family:'Inter',sans-serif;font-weight:700;font-size:12.5px;color:var(--ink);}
+  .exercise-card .ex-tip{font-size:10px;color:#7A8071;margin-top:2px;line-height:1.4;}
+  .exercise-card.active{border-color:var(--moss);background:rgba(91,122,84,0.08);}
+  .exercise-card.active .ex-icon{background:var(--moss);}
+  .exercise-card.active .ex-name{color:var(--moss-dim);}
 
-  #example-backdrop{position:absolute;inset:0;z-index:32;background:rgba(0,0,0,0.6);display:none;align-items:flex-end;justify-content:center;}
-  #example-sheet{width:100%;max-width:480px;background:#10201D;border-radius:24px 24px 0 0;padding:18px 20px max(20px, env(safe-area-inset-bottom)) 20px;border-top:1px solid rgba(255,255,255,0.12);max-height:85vh;overflow-y:auto;text-align:center;}
-  #example-sheet .ex-example-title{font-family:'Sora',sans-serif;font-weight:800;font-size:16px;margin-bottom:10px;}
-  #example-svg-wrap{width:100%;max-width:260px;margin:0 auto 14px auto;background:rgba(255,255,255,0.03);border-radius:16px;padding:10px;}
+  #example-backdrop{position:absolute;inset:0;z-index:32;background:rgba(20,24,16,0.55);display:none;align-items:flex-end;justify-content:center;}
+  #example-sheet{width:100%;max-width:480px;background:var(--paper);color:var(--ink);border-radius:20px 20px 0 0;padding:18px 20px max(20px, env(safe-area-inset-bottom)) 20px;border-top:2px solid var(--ink);max-height:85vh;overflow-y:auto;text-align:center;}
+  #example-sheet .ex-example-title{font-family:'Fraunces',serif;font-weight:600;font-size:17px;margin-bottom:10px;}
+  #example-svg-wrap{width:100%;max-width:260px;margin:0 auto 14px auto;background:#fff;border-radius:var(--r);border:1.5px solid var(--paper-line);padding:10px;}
   #example-svg-wrap svg{width:100%;height:auto;display:block;}
   #example-steps{list-style:none;margin:0 0 16px 0;padding:0;text-align:left;}
-  #example-steps li{display:flex;gap:10px;align-items:flex-start;font-size:12.5px;color:var(--cream);line-height:1.5;margin-bottom:9px;}
-  #example-steps .step-num{flex:0 0 auto;width:20px;height:20px;border-radius:50%;background:var(--teal);color:var(--bg);font-family:'Sora',sans-serif;font-weight:800;font-size:11px;display:flex;align-items:center;justify-content:center;}
+  #example-steps li{display:flex;gap:10px;align-items:flex-start;font-size:12.5px;color:var(--ink);line-height:1.5;margin-bottom:9px;}
+  #example-steps .step-num{flex:0 0 auto;width:20px;height:20px;border-radius:50%;background:var(--moss);color:var(--cream);font-family:'IBM Plex Mono',monospace;font-weight:600;font-size:11px;display:flex;align-items:center;justify-content:center;}
   #example-actions{display:flex;gap:9px;}
-  #example-actions button{flex:1;padding:13px;border-radius:14px;font-weight:700;font-size:13px;border:none;}
-  #example-select-btn{background:var(--teal);color:var(--bg);}
-  #example-close-btn{background:rgba(255,255,255,0.08);color:var(--cream);}
+  #example-actions button{flex:1;padding:13px;border-radius:var(--r);font-weight:700;font-size:13px;border:1.5px solid transparent;}
+  #example-select-btn{background:var(--moss);color:var(--cream);}
+  #example-close-btn{background:transparent;color:var(--ink);border-color:var(--paper-line);}
   .select-row{display:flex;gap:8px;margin:4px 0 4px 0;width:100%;max-width:380px;}
-  .select-card{flex:1;padding:11px 6px;border-radius:15px;border:1.5px solid rgba(255,255,255,0.14);background:rgba(255,255,255,0.04);font-family:'Inter',sans-serif;font-weight:600;font-size:11px;}
-  .select-card.active{border-color:var(--teal);background:rgba(47,191,158,0.14);color:var(--teal);}
+  .select-card{flex:1;padding:11px 6px;border-radius:var(--r);border:1.5px solid var(--paper-line);background:#fff;font-family:'Inter',sans-serif;font-weight:600;font-size:11px;color:var(--ink);}
+  .select-card.active{border-color:var(--moss);background:rgba(91,122,84,0.10);color:var(--moss-dim);}
   .select-card .icon{font-size:18px;display:block;margin-bottom:4px;}
-  .select-card .sub2{display:block;font-size:9px;color:var(--text-dim);font-weight:500;margin-top:2px;}
+  .select-card .sub2{display:block;font-size:9px;color:#7A8071;font-weight:500;margin-top:2px;}
   #ipcam-field{width:100%;max-width:380px;margin-top:8px;display:none;}
-  #ipcam-field input{width:100%;padding:12px 14px;border-radius:13px;border:1.5px solid rgba(255,255,255,0.16);background:rgba(255,255,255,0.05);color:var(--cream);font-size:13px;margin-bottom:6px;}
-  #ipcam-field .hint{font-size:9.5px;color:var(--text-dim);line-height:1.5;text-align:left;}
-  .calib-status{width:100%;max-width:380px;margin-top:8px;padding:10px 12px;border-radius:14px;background:rgba(47,191,158,0.10);border:1px solid rgba(47,191,158,0.3);font-size:10.5px;color:var(--teal);text-align:left;display:none;}
-  #start-btn{font-family:'Sora',sans-serif;font-weight:700;font-size:14.5px;color:var(--bg);background:var(--teal);border:none;border-radius:16px;padding:14px 44px;width:100%;max-width:380px;box-shadow:0 10px 30px rgba(47,191,158,0.35);flex:0 0 auto;margin-top:12px;}
+  #ipcam-field input{width:100%;padding:12px 14px;border-radius:var(--r-sm);border:1.5px solid var(--paper-line);background:#fff;color:var(--ink);font-size:13px;margin-bottom:6px;font-family:'IBM Plex Mono',monospace;}
+  #ipcam-field .hint{font-size:9.5px;color:#7A8071;line-height:1.5;text-align:left;}
+  .calib-status{width:100%;max-width:380px;margin-top:8px;padding:10px 12px;border-radius:var(--r-sm);background:rgba(91,122,84,0.10);border:1.5px dashed var(--moss);font-size:10.5px;color:var(--moss-dim);text-align:left;display:none;}
+  #start-btn{font-family:'Inter',sans-serif;font-weight:700;font-size:14.5px;color:var(--cream);background:var(--ink);border:none;border-radius:var(--r);padding:14px 44px;width:100%;max-width:380px;flex:0 0 auto;margin-top:12px;}
   #start-btn:active{transform:scale(0.98);}
-  #view-stats-link{margin-top:12px;font-size:12px;color:var(--teal);font-weight:600;background:none;border:none;text-decoration:underline;padding:6px;}
-  #start-note{margin-top:10px;font-size:9.5px;color:var(--text-dim);max-width:300px;}
-  #loading-row{margin-top:11px;font-size:11.5px;color:var(--text-dim);display:none;}
+  #view-stats-link{margin-top:12px;font-size:12px;color:var(--moss-dim);font-weight:700;background:none;border:none;text-decoration:underline;padding:6px;}
+  #start-note{margin-top:10px;font-size:9.5px;color:#8C9186;max-width:300px;}
+  #loading-row{margin-top:11px;font-size:11.5px;color:#5C6154;display:none;font-family:'IBM Plex Mono',monospace;}
 
-  #sheet-backdrop{position:absolute;inset:0;z-index:30;background:rgba(0,0,0,0.55);display:none;align-items:flex-end;justify-content:center;}
-  #sheet{width:100%;max-width:480px;background:#10201D;border-radius:24px 24px 0 0;padding:18px 18px max(20px, env(safe-area-inset-bottom)) 18px;border-top:1px solid rgba(255,255,255,0.12);max-height:80vh;overflow-y:auto;}
-  #sheet .sheet-title{font-family:'Sora',sans-serif;font-weight:700;font-size:14px;margin-bottom:12px;text-align:center;}
+  #sheet-backdrop{position:absolute;inset:0;z-index:30;background:rgba(20,24,16,0.5);display:none;align-items:flex-end;justify-content:center;}
+  #sheet{width:100%;max-width:480px;background:var(--paper);color:var(--ink);border-radius:20px 20px 0 0;padding:18px 18px max(20px, env(safe-area-inset-bottom)) 18px;border-top:2px solid var(--ink);max-height:80vh;overflow-y:auto;}
+  #sheet .sheet-title{font-family:'Fraunces',serif;font-weight:600;font-size:16px;margin-bottom:12px;text-align:center;}
   #sheet .exercise-list{max-width:none;margin-bottom:10px;}
-  #sheet-close{width:100%;padding:12px;border-radius:14px;background:rgba(255,255,255,0.08);border:none;color:var(--cream);font-weight:600;font-size:13px;margin-top:4px;}
+  #sheet-close{width:100%;padding:12px;border-radius:var(--r);background:transparent;border:1.5px solid var(--paper-line);color:var(--ink);font-weight:700;font-size:13px;margin-top:4px;}
 
-  /* ---------- Stats screen ---------- */
-  #stats-screen{position:absolute;inset:0;z-index:25;background:#0E1614;display:none;flex-direction:column;}
-  #stats-screen .stats-topbar{display:flex;align-items:center;justify-content:space-between;padding:max(16px, env(safe-area-inset-top)) 16px 12px 16px;border-bottom:1px solid rgba(255,255,255,0.08);flex:0 0 auto;}
-  #stats-screen .stats-topbar h2{font-family:'Sora',sans-serif;font-size:17px;font-weight:800;margin:0;}
+  /* ---------- Stats screen (สรุปตัวเลข + ประวัติเซต) ---------- */
+  #stats-screen{position:absolute;inset:0;z-index:25;background:var(--paper);display:none;flex-direction:column;color:var(--ink);}
+  #stats-screen .stats-topbar{display:flex;align-items:center;justify-content:space-between;padding:max(16px, env(safe-area-inset-top)) 16px 12px 16px;border-bottom:2px solid var(--ink);flex:0 0 auto;}
+  #stats-screen .stats-topbar h2{font-family:'Fraunces',serif;font-size:18px;font-weight:600;margin:0;}
+  #stats-screen .stats-topbar .iconbtn{border-color:var(--paper-line);background:rgba(0,0,0,0.05);color:var(--ink);}
   #stats-body{flex:1;overflow-y:auto;padding:16px 16px max(28px, env(safe-area-inset-bottom)) 16px;}
   .stats-cards{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:18px;}
-  .stat-card{background:rgba(255,255,255,0.05);border:1px solid rgba(255,255,255,0.10);border-radius:16px;padding:13px 14px;}
-  .stat-card .sc-num{font-family:'Sora',sans-serif;font-weight:800;font-size:24px;color:var(--teal);line-height:1;}
-  .stat-card .sc-lbl{font-size:10.5px;color:var(--text-dim);margin-top:5px;}
-  .chart-card{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.10);border-radius:18px;padding:14px 12px 8px 12px;margin-bottom:16px;}
-  .chart-card .cc-title{font-family:'Inter',sans-serif;font-weight:700;font-size:12.5px;color:var(--cream);margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;}
-  .chart-card select{background:rgba(255,255,255,0.08);color:var(--cream);border:1px solid rgba(255,255,255,0.16);border-radius:10px;padding:5px 9px;font-size:11px;font-family:'Inter',sans-serif;}
-  .chart-wrap{position:relative;height:190px;width:100%;}
-  .chart-wrap canvas{position:absolute;inset:0;width:100% !important;height:100% !important;display:block;}
-  .empty-note{font-size:11.5px;color:var(--text-dim);text-align:center;padding:20px 10px;}
-  .session-item{display:flex;align-items:center;gap:10px;padding:11px 12px;border-radius:14px;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);margin-bottom:8px;}
-  .session-item .si-icon{font-size:18px;flex:0 0 auto;width:26px;text-align:center;}
+  .stat-card{position:relative;background:#fff;border:1.5px solid var(--paper-line);border-radius:var(--r);padding:13px 14px;border-bottom:3px solid var(--moss);}
+  .stat-card .sc-num{font-family:'IBM Plex Mono',monospace;font-weight:600;font-size:25px;color:var(--moss-dim);line-height:1;}
+  .stat-card .sc-lbl{font-size:10.5px;color:#7A8071;margin-top:6px;}
+  .empty-note{font-size:11.5px;color:#7A8071;text-align:center;padding:20px 10px;border:1.5px dashed var(--paper-line);border-radius:var(--r);}
+  .session-item{display:flex;align-items:center;gap:10px;padding:11px 12px;background:#fff;border:1.5px solid var(--paper-line);border-radius:var(--r);margin-bottom:8px;}
+  .session-item .si-icon{font-size:16px;flex:0 0 auto;width:28px;height:28px;line-height:28px;text-align:center;border-radius:50%;background:var(--paper-2);}
   .session-item .si-mid{flex:1;min-width:0;}
-  .session-item .si-name{font-size:12px;font-weight:700;}
-  .session-item .si-meta{font-size:10px;color:var(--text-dim);margin-top:2px;}
-  .session-item .si-reps{font-family:'Sora',sans-serif;font-weight:800;font-size:18px;color:var(--teal);flex:0 0 auto;}
+  .session-item .si-name{font-size:12px;font-weight:700;color:var(--ink);}
+  .session-item .si-meta{font-size:10px;color:#8C9186;margin-top:2px;font-family:'IBM Plex Mono',monospace;}
+  .session-item .si-reps{font-family:'IBM Plex Mono',monospace;font-weight:600;font-size:18px;color:var(--moss-dim);flex:0 0 auto;}
   .stats-actions{display:flex;gap:9px;margin-top:6px;}
-  .stats-actions button{flex:1;padding:12px;border-radius:14px;font-size:12px;font-weight:600;border:1px solid rgba(255,255,255,0.14);background:rgba(255,255,255,0.05);color:var(--cream);}
-  .stats-actions button.danger{color:var(--red);border-color:rgba(232,87,74,0.35);}
+  .stats-actions button{flex:1;padding:12px;border-radius:var(--r);font-size:12px;font-weight:700;border:1.5px solid var(--paper-line);background:#fff;color:var(--ink);}
+  .stats-actions button.danger{color:var(--brick);border-color:rgba(156,59,46,0.4);}
 
   .hidden{display:none !important;}
 </style>
@@ -225,7 +230,7 @@
 <div id="start-screen">
   <div class="logo-mark">🤝</div>
   <h1>SmartMotion AI</h1>
-  <p class="sub">ระบบวิเคราะห์การฟื้นฟูการเคลื่อนไหวแขน แม่นยำด้วยการวิเคราะห์มุมข้อต่อแบบ 3 มิติ พร้อมสถิติละเอียดรายวัน</p>
+  <p class="sub">ระบบวิเคราะห์การฟื้นฟูการเคลื่อนไหวแขน แม่นยำด้วยการวิเคราะห์มุมข้อต่อแบบเรียลไทม์</p>
 
   <div class="section-label">เลือกท่าบริหาร</div>
   <div class="exercise-list" id="exercise-list"></div>
@@ -285,21 +290,6 @@
       <div class="stat-card"><div class="sc-num" id="sc-streak">0</div><div class="sc-lbl">วันติดต่อกัน 🔥</div></div>
       <div class="stat-card"><div class="sc-num" id="sc-total">0</div><div class="sc-lbl">ครั้งสะสมทั้งหมด</div></div>
       <div class="stat-card"><div class="sc-num" id="sc-days">0</div><div class="sc-lbl">จำนวนวันที่ฝึก</div></div>
-    </div>
-
-    <div class="chart-card">
-      <div class="cc-title"><span>จำนวนครั้งต่อวัน (14 วันล่าสุด)</span></div>
-      <div class="chart-wrap"><canvas id="chart-daily"></canvas></div>
-      <div class="empty-note hidden" id="chart-daily-empty">ยังไม่มีข้อมูลการฝึก เริ่มฝึกเซตแรกกันเลย!</div>
-    </div>
-
-    <div class="chart-card">
-      <div class="cc-title">
-        <span>แนวโน้มช่วงองศาที่ทำได้ (ROM)</span>
-        <select id="rom-exercise-select"></select>
-      </div>
-      <div class="chart-wrap"><canvas id="chart-rom"></canvas></div>
-      <div class="empty-note hidden" id="chart-rom-empty">ยังไม่มีข้อมูลสำหรับท่านี้</div>
     </div>
 
     <div class="section-label" style="margin-top:2px;">ประวัติเซตล่าสุด</div>
@@ -382,21 +372,6 @@ const EXERCISES = {
       <path d="M 78 90 Q 90 60 108 42" fill="none" stroke="#F4F1EA" stroke-width="2.5" marker-end="url(#arrSf)"/>
       <defs><marker id="arrSf" markerWidth="7" markerHeight="7" refX="3" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#F4F1EA"/></marker></defs>
       <text x="70" y="127" font-size="9" fill="#A9BDB8" text-anchor="middle">แนบลำตัว (เขียว) → ยกหน้า (ส้ม)</text>
-    </svg>` },
-  shoulder_abduct: { key:'shoulder_abduct', icon:'🤸', name:'กางแขนออกด้านข้าง', triplet:(arm)=>[LM[arm].hip,LM[arm].shoulder,LM[arm].elbow],
-    defLow:20, defHigh:90, readyLabel:'แขนแนบลำตัว', targetLabel:'กางแขนถึงระดับไหล่', midLabel:'กำลังกางแขน',
-    tip:'หันหน้าเข้ากล้องตรง ๆ ให้เห็นทั้งลำตัว แล้วกางแขนออกด้านข้าง',
-    steps:['ยืนหรือนั่งตัวตรง หันหน้าเข้าหากล้อง','ปล่อยแขนตรงแนบลำตัวทั้งสองข้าง','กางแขนตรง ๆ ออกด้านข้างขึ้นช้า ๆ จนถึงระดับไหล่','ค่อย ๆ ลดแขนกลับแนบลำตัว ทำซ้ำ'],
-    demoSvg:`<svg viewBox="0 0 160 130" xmlns="http://www.w3.org/2000/svg">
-      <circle cx="80" cy="24" r="11" fill="none" stroke="#A9BDB8" stroke-width="3"/>
-      <line x1="80" y1="35" x2="80" y2="90" stroke="#A9BDB8" stroke-width="4" stroke-linecap="round"/>
-      <line x1="80" y1="90" x2="66" y2="118" stroke="#A9BDB8" stroke-width="4" stroke-linecap="round"/>
-      <line x1="80" y1="90" x2="94" y2="118" stroke="#A9BDB8" stroke-width="4" stroke-linecap="round"/>
-      <line x1="80" y1="46" x2="78" y2="95" stroke="#3FCB7C" stroke-width="5" stroke-linecap="round" stroke-dasharray="5,4"/>
-      <line x1="80" y1="46" x2="132" y2="46" stroke="#E8935B" stroke-width="5" stroke-linecap="round"/>
-      <path d="M 92 80 Q 108 65 122 52" fill="none" stroke="#F4F1EA" stroke-width="2.5" marker-end="url(#arrAb)"/>
-      <defs><marker id="arrAb" markerWidth="7" markerHeight="7" refX="3" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 Z" fill="#F4F1EA"/></marker></defs>
-      <text x="88" y="127" font-size="9" fill="#A9BDB8" text-anchor="middle">แนบลำตัว (เขียว) → กางข้าง (ส้ม)</text>
     </svg>` }
 };
 const MODEL_PATHS = {
@@ -407,12 +382,7 @@ const MODEL_PATHS = {
 /* ════════════════════════════════════════════════════════════════════
    SECTION 3: ที่เก็บประวัติการฝึก (HISTORY STORAGE - localStorage)
    หนึ่ง record = หนึ่งเซตที่กำลัง/ฝึกเสร็จแล้ว เก็บถาวรในเครื่อง/เบราว์เซอร์นี้
-
-   FIX: เดิมระบบจะบันทึกประวัติ "ก็ต่อเมื่อ" ผู้ใช้กดปุ่ม "จบเซต" เท่านั้น
-   ถ้าผู้ใช้ฝึกแล้วไม่ได้กดปุ่มนี้ (หรือเปลี่ยนหน้าไปดูสถิติก่อน) กราฟจะว่างเปล่า
-   ทำให้ดูเหมือน "กราฟไม่ขึ้น" ทั้งที่จริง ๆ ไม่มีข้อมูลถูกบันทึกเลย
-   ตอนนี้ระบบจะ "อัปเดตสด" (upsert) เซตที่กำลังฝึกอยู่ลงประวัติทันทีทุกครั้งที่นับครบ 1 ครั้ง
-   ดังนั้นแค่เริ่มฝึกและทำท่าถูกต้อง กราฟ/สถิติจะขึ้นทันทีโดยไม่ต้องกด "จบเซต" ก่อน
+   บันทึกแบบ "อัปเดตสด" (upsert) ทันทีทุกครั้งที่นับครบ 1 ครั้ง ไม่ต้องรอกด "จบเซต"
    ════════════════════════════════════════════════════════════════════ */
 const HISTORY_KEY = 'smartmotion_history_v1';
 
@@ -426,7 +396,6 @@ function dateKey(d){ // YYYY-MM-DD ตามเวลาท้องถิ่น
   const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,'0'), day=String(d.getDate()).padStart(2,'0');
   return `${y}-${m}-${day}`;
 }
-function thaiDate(d){ return d.toLocaleDateString('th-TH', { day:'numeric', month:'short' }); }
 
 // สร้าง record object จากสถานะเซตปัจจุบัน (ใช้ทั้งตอน upsert ระหว่างฝึก และตอนจบเซตจริง)
 function buildSessionRecord(existingId){
@@ -456,7 +425,7 @@ function buildSessionRecord(existingId){
   };
 }
 
-// เรียกทันทีทุกครั้งที่นับครบ 1 ครั้ง (rep) เพื่อให้กราฟ/สถิติอัปเดตแบบเรียลไทม์
+// เรียกทันทีทุกครั้งที่นับครบ 1 ครั้ง (rep) เพื่อให้สถิติอัปเดตแบบเรียลไทม์
 // ใช้ currentSessionRecordId เป็นตัวอ้างอิงว่าเซตนี้เคยถูกเขียนลง history แล้วหรือยัง (upsert)
 function upsertLiveSessionToHistory(){
   if (repCount === 0) return;
@@ -511,7 +480,6 @@ let sessionAngleStats = { min: Infinity, max: -Infinity, sum: 0, count: 0 };
 let currentSessionRecordId = null; // id ของ record ใน history ที่กำลังอัปเดตสดอยู่ (เซตปัจจุบัน)
 let customThresholds = {};
 let calibSamples = [];
-let charts = { daily: null, rom: null };
 
 /* ════════════════════════════════════════════════════════════════════
    SECTION 5: DOM REFERENCES (อ้างอิง element ทั้งหมดไว้ที่เดียว)
@@ -579,12 +547,9 @@ const scToday = document.getElementById('sc-today');
 const scStreak = document.getElementById('sc-streak');
 const scTotal = document.getElementById('sc-total');
 const scDays = document.getElementById('sc-days');
-const romExerciseSelect = document.getElementById('rom-exercise-select');
 const sessionListEl = document.getElementById('session-list');
 const exportAllBtn = document.getElementById('export-all-btn');
 const clearHistoryBtn = document.getElementById('clear-history-btn');
-const chartDailyEmpty = document.getElementById('chart-daily-empty');
-const chartRomEmpty = document.getElementById('chart-rom-empty');
 
 /* ════════════════════════════════════════════════════════════════════
    SECTION 6: เกณฑ์มุม (THRESHOLDS) - ค่ามาตรฐาน vs ค่าที่ปรับเทียบเอง
@@ -825,9 +790,9 @@ function updateHud(angle, isTargetZone, ex, th){
   const C = 263.9, pct = Math.max(0, Math.min(1, angle/180));
   gaugeFg.style.strokeDashoffset = C - pct*C;
   gaugeFg.style.stroke = isTargetZone ? 'var(--green)' : 'var(--teal)';
-  if (angle < th.low){ stagePill.textContent = ex.readyLabel; stagePill.style.background='rgba(63,203,124,0.18)'; stagePill.style.color='#3FCB7C'; }
-  else if (angle > th.high){ stagePill.textContent = ex.targetLabel; stagePill.style.background='rgba(63,203,124,0.18)'; stagePill.style.color='#3FCB7C'; }
-  else { stagePill.textContent = ex.midLabel; stagePill.style.background='rgba(232,147,91,0.18)'; stagePill.style.color='#E8935B'; }
+  if (angle < th.low){ stagePill.textContent = ex.readyLabel; stagePill.style.background='rgba(63,203,124,0.18)'; stagePill.style.color='#3FCB7C'; stagePill.style.borderLeftColor='#3FCB7C'; }
+  else if (angle > th.high){ stagePill.textContent = ex.targetLabel; stagePill.style.background='rgba(63,203,124,0.18)'; stagePill.style.color='#3FCB7C'; stagePill.style.borderLeftColor='#3FCB7C'; }
+  else { stagePill.textContent = ex.midLabel; stagePill.style.background='rgba(232,147,91,0.18)'; stagePill.style.color='#E8935B'; stagePill.style.borderLeftColor='#E8935B'; }
   const pct2 = Math.round(confidence*100);
   confText.textContent = `ความมั่นใจ ${pct2}%`;
   confDot.style.background = confidence > 0.7 ? '#3FCB7C' : confidence > 0.4 ? '#E8935B' : '#E8574A';
@@ -894,7 +859,7 @@ function predictLoop(){
                 setTimeout(() => { repNum.style.transform = 'scale(1)'; }, 180);
                 sessionLog.push({ idx: repCount, time: new Date().toLocaleTimeString('th-TH'), angle: Math.round(smoothedAngle) });
                 beep(); speakCount(repCount); showRepToast(repCount);
-                upsertLiveSessionToHistory(); // <-- บันทึกลงประวัติทันทีทุกครั้งที่นับครบ 1 ครั้ง (ไม่ต้องรอกด "จบเซต")
+                upsertLiveSessionToHistory(); // บันทึกลงประวัติทันทีทุกครั้งที่นับครบ 1 ครั้ง
               }
             } else { framesInZone = 0; }
           }
@@ -1018,18 +983,8 @@ async function startCalibration(){
 calibOpenBtn.onclick = startCalibration;
 
 /* ════════════════════════════════════════════════════════════════════
-   SECTION 16: หน้าสถิติ (STATS SCREEN) - การ์ดสรุป + กราฟ + ประวัติเซต
-
-   FIX (กราฟไม่ขึ้น):
-   1) เดิม canvas ไม่มี CSS กำหนดขนาดชัดเจน (มีแค่ .chart-wrap{height:190px})
-      แล้วโค้ดไปตั้ง canvas.width/height เป็นพิกเซลตรง ๆ ก่อนสร้าง Chart.js
-      พอ Chart.js เจอ responsive:true มันจะพยายามคำนวณขนาดเองจาก CSS อีกที
-      ถ้าจังหวะ layout ยังไม่นิ่ง (โดยเฉพาะตอนสลับ #stats-screen จาก display:none -> flex)
-      จะได้ขนาด 0x0 แล้วกราฟไม่ render เลย
-      -> แก้โดยเพิ่ม CSS ให้ canvas เป็น width:100%;height:100% ชัดเจน (ดู .chart-wrap canvas ใน CSS)
-         และเรียก chart.resize() อีกครั้งหลัง requestAnimationFrame ถัดไปเป็น safety net
-   2) เดิมข้อมูลจะถูกบันทึกลงประวัติ "เฉพาะตอนกด จบเซต" เท่านั้น ถ้าไม่กดปุ่มนี้
-      กราฟ/สถิติจะว่างเสมอ (ดู SECTION 3: upsertLiveSessionToHistory ที่แก้ไปแล้ว)
+   SECTION 16: หน้าสถิติ (STATS SCREEN) - การ์ดสรุปตัวเลข + ประวัติเซต
+   (ไม่มีกราฟ ตามที่ผู้ใช้ต้องการให้ตัดออก)
    ════════════════════════════════════════════════════════════════════ */
 function computeStreak(hist){
   if (hist.length === 0) return 0;
@@ -1045,45 +1000,7 @@ function computeStreak(hist){
   return streak;
 }
 
-function buildDailyChartData(hist){
-  const days = [];
-  const today = new Date();
-  for (let i = 13; i >= 0; i--){
-    const d = new Date(today); d.setDate(today.getDate() - i);
-    days.push({ key: dateKey(d), label: thaiDate(d) });
-  }
-  const sums = days.map(d => hist.filter(r => r.dateKey === d.key).reduce((s,r)=>s+r.reps,0));
-  return { labels: days.map(d=>d.label), data: sums };
-}
-
-function buildRomChartData(hist, exerciseKey){
-  const filtered = hist.filter(r => exerciseKey === 'all' ? true : r.exerciseKey === exerciseKey)
-    .filter(r => r.romUsed !== null)
-    .sort((a,b) => new Date(a.dateISO) - new Date(b.dateISO))
-    .slice(-12);
-  return {
-    labels: filtered.map(r => thaiDate(new Date(r.dateISO))),
-    data: filtered.map(r => r.romUsed)
-  };
-}
-
-// สร้าง/รีเฟรช Chart.js instance ตัวหนึ่ง พร้อม safety-resize กันปัญหา canvas ขนาด 0
-function mountChart(existingChart, canvasEl, config){
-  if (existingChart) existingChart.destroy();
-  const chart = new Chart(canvasEl.getContext('2d'), config);
-  // เผื่อ layout ยังไม่นิ่งตอนสร้าง (เช่นเพิ่งเปิดหน้าสถิติ) ให้บังคับ resize อีกรอบในเฟรมถัดไป
-  requestAnimationFrame(() => chart.resize());
-  return chart;
-}
-
-function renderCharts(){
-  if (typeof Chart === 'undefined'){
-    chartDailyEmpty.textContent = 'โหลดไลบรารีกราฟไม่สำเร็จ (Chart.js) กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ตแล้วลองเปิดหน้านี้ใหม่';
-    chartDailyEmpty.classList.remove('hidden');
-    chartRomEmpty.textContent = 'โหลดไลบรารีกราฟไม่สำเร็จ (Chart.js)';
-    chartRomEmpty.classList.remove('hidden');
-    return;
-  }
+function renderStats(){
   const hist = loadHistory();
 
   // --- การ์ดสรุปตัวเลข ---
@@ -1093,38 +1010,11 @@ function renderCharts(){
   scDays.textContent = new Set(hist.map(r => r.dateKey)).size;
   scStreak.textContent = computeStreak(hist);
 
-  // --- กราฟแท่ง: จำนวนครั้งต่อวัน ---
-  const dailyData = buildDailyChartData(hist);
-  const hasDaily = dailyData.data.some(v => v > 0);
-  chartDailyEmpty.classList.toggle('hidden', hasDaily);
-  const dailyCanvas = document.getElementById('chart-daily');
-  charts.daily = mountChart(charts.daily, dailyCanvas, {
-    type: 'bar',
-    data: { labels: dailyData.labels, datasets: [{ label: 'จำนวนครั้ง', data: dailyData.data, backgroundColor: '#2FBF9E', borderRadius: 5, maxBarThickness: 22 }] },
-    options: {
-      responsive: true, maintainAspectRatio: false,
-      plugins: { legend: { display: false } },
-      scales: {
-        x: { ticks: { color:'#A9BDB8', font:{ size:9 } }, grid: { display:false } },
-        y: { ticks: { color:'#A9BDB8', font:{ size:9 }, precision:0 }, grid: { color:'rgba(255,255,255,0.06)' }, beginAtZero:true }
-      }
-    }
-  });
-
-  // --- ตัวเลือกท่าบริหารสำหรับกราฟ ROM (สร้าง dropdown แค่ครั้งเดียว) ---
-  if (romExerciseSelect.dataset.built !== '1'){
-    romExerciseSelect.innerHTML = '<option value="all">ทุกท่า</option>' +
-      Object.values(EXERCISES).map(ex => `<option value="${ex.key}">${ex.name}</option>`).join('');
-    romExerciseSelect.dataset.built = '1';
-    romExerciseSelect.onchange = renderRomChart;
-  }
-  renderRomChart();
-
-  // --- รายการเซตล่าสุด (ใหม่สุดก่อน สูงสุด 15 รายการ) ---
+  // --- รายการเซตล่าสุด (ใหม่สุดก่อน สูงสุด 20 รายการ) ---
   sessionListEl.innerHTML = '';
-  const recent = [...hist].sort((a,b)=> new Date(b.dateISO)-new Date(a.dateISO)).slice(0,15);
+  const recent = [...hist].sort((a,b)=> new Date(b.dateISO)-new Date(a.dateISO)).slice(0,20);
   if (recent.length === 0){
-    sessionListEl.innerHTML = '<div class="empty-note">ยังไม่มีประวัติการฝึก</div>';
+    sessionListEl.innerHTML = '<div class="empty-note">ยังไม่มีประวัติการฝึก เริ่มฝึกเซตแรกกันเลย!</div>';
   } else {
     recent.forEach(r => {
       const ex = EXERCISES[r.exerciseKey];
@@ -1145,32 +1035,10 @@ function renderCharts(){
     });
   }
 }
-function renderRomChart(){
-  if (typeof Chart === 'undefined') return;
-  const hist = loadHistory();
-  const key = romExerciseSelect.value || 'all';
-  const romData = buildRomChartData(hist, key);
-  const hasRom = romData.data.length > 0;
-  chartRomEmpty.classList.toggle('hidden', hasRom);
-  const romCanvas = document.getElementById('chart-rom');
-  charts.rom = mountChart(charts.rom, romCanvas, {
-    type: 'line',
-    data: { labels: romData.labels, datasets: [{ label: 'ROM (°)', data: romData.data, borderColor:'#E8935B', backgroundColor:'rgba(232,147,91,0.15)', fill:true, tension:0.35, pointRadius:3, pointBackgroundColor:'#E8935B' }] },
-    options: {
-      responsive:true, maintainAspectRatio:false,
-      plugins: { legend: { display:false } },
-      scales: {
-        x: { ticks:{ color:'#A9BDB8', font:{size:9} }, grid:{ display:false } },
-        y: { ticks:{ color:'#A9BDB8', font:{size:9} }, grid:{ color:'rgba(255,255,255,0.06)' } }
-      }
-    }
-  });
-}
 
 function openStats(){
   statsScreen.style.display = 'flex';
-  // รอ 2 เฟรมให้ layout ของ #stats-screen (จาก display:none -> flex) นิ่งก่อนค่อยวัดขนาด canvas
-  requestAnimationFrame(() => requestAnimationFrame(renderCharts));
+  renderStats();
 }
 function closeStats(){ statsScreen.style.display = 'none'; }
 statsBtn.onclick = openStats;
@@ -1202,7 +1070,7 @@ clearHistoryBtn.onclick = () => {
   if (confirm('ต้องการล้างประวัติการฝึกทั้งหมดหรือไม่? การกระทำนี้ไม่สามารถย้อนกลับได้')){
     saveHistory([]);
     currentSessionRecordId = null; // เซตปัจจุบัน (ถ้ามี) จะถูกสร้าง record ใหม่แทนของเดิมที่ถูกล้างไปแล้ว
-    renderCharts();
+    renderStats();
     showTip('ล้างประวัติเรียบร้อยแล้ว');
   }
 };
@@ -1250,10 +1118,7 @@ window.addEventListener('beforeunload', () => { if (running && repCount > 0) com
    SECTION 18: INIT - เรียกใช้งานตอนโหลดหน้าเว็บ
    ════════════════════════════════════════════════════════════════════ */
 renderExerciseLists();
-window.addEventListener('resize', () => {
-  resizeCanvas();
-  if (statsScreen.style.display === 'flex') renderCharts();
-});
+window.addEventListener('resize', resizeCanvas);
 video.addEventListener('loadedmetadata', resizeCanvas);
 </script>
 </body>
